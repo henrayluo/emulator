@@ -1,0 +1,32 @@
+package net.fornwall.jelf;
+
+import java.io.IOException;
+
+public class ElfSymbolStructure implements SymbolLocator {
+
+    private final ElfParser parser;
+    private final long offset;
+    private final int entrySize;
+    private final MemoizedObject<ElfStringTable> stringTable;
+    private final MemoizedObject<ElfHashTable> hashTable;
+
+    ElfSymbolStructure(final ElfParser parser, long offset, int entrySize, MemoizedObject<ElfStringTable> stringTable, MemoizedObject<ElfHashTable> hashTable) {
+        this.parser = parser;
+        this.offset = offset;
+        this.entrySize = entrySize;
+        this.stringTable = stringTable;
+        this.hashTable = hashTable;
+    }
+
+    /** Returns the symbol at the specified index. The ELF symbol at index 0 is the undefined symbol. */
+    @Override
+    public ElfSymbol getELFSymbol(int index) throws IOException {
+        return new ElfSymbol(parser, offset + index * entrySize, -1).setStringTable(stringTable.getValue());
+    }
+
+    @Override
+    public ElfSymbol getELFSymbolByName(String name) throws IOException {
+        return hashTable.getValue().getSymbol(this, name);
+    }
+
+}
