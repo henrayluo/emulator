@@ -1,0 +1,5 @@
+/android/dev/log/
+/android/io/
+/emulator.iml
+/.idea/
+/unpack/*_unpacked.so
