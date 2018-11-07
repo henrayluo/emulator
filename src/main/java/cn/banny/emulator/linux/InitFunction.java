@@ -5,6 +5,9 @@ import net.fornwall.jelf.ElfInitArray;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
+import java.util.ArrayList;
+import java.util.List;
+
 class InitFunction {
 
     private static final Log log = LogFactory.getLog(InitFunction.class);
@@ -41,6 +44,16 @@ class InitFunction {
                 System.err.println("[" + soName + "]CallInitFunction: 0x" + Long.toHexString(addr) + ", offset=" + (System.currentTimeMillis() - start) + "ms");
             }
         }
+    }
+
+    List<String> addressList() {
+        List<String> list = new ArrayList<>();
+        for (long addr : addresses) {
+            if (addr != 0) {
+                list.add("0x" + Long.toHexString(addr));
+            }
+        }
+        return list;
     }
 
 }

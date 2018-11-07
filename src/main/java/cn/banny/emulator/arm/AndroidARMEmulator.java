@@ -56,13 +56,13 @@ public class AndroidARMEmulator extends AbstractEmulator implements ARMEmulator 
         try {
             byte[] __kuser_memory_barrier = new byte[] { 0x1e, (byte) 0xff, 0x2f, (byte) 0xe1 }; // bx lr
             byte[] __kuser_cmpxchg = Hex.decodeHex("5ff07ff59f3f92e1003053e0913f820101003303faffff0a000073e2efffffea".toCharArray());
-            unicorn.mem_write(0xffff0fa0L, __kuser_memory_barrier);
+            unicorn.mem_write(LR, __kuser_memory_barrier);
             unicorn.mem_write(0xffff0fc0L, __kuser_cmpxchg);
 
             if (log.isDebugEnabled()) {
                 log.debug("__kuser_memory_barrier");
                 for (int i = 0; i < __kuser_memory_barrier.length; i += 4) {
-                    printAssemble(0xffff0fa0L + i, 4);
+                    printAssemble(LR + i, 4);
                 }
                 log.debug("__kuser_cmpxchg");
                 for (int i = 0; i < __kuser_cmpxchg.length; i += 4) {

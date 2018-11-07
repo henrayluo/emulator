@@ -14,9 +14,9 @@ public class DalvikVMTest implements ModuleListener {
 
     @Override
     public void onLoaded(Emulator emulator, Module module) {
-        /*if ("libdvm.so".equals(module.name)) {
+        /*if ("libselinux.so".equals(module.name)) {
             final Debugger debugger = emulator.attach();
-            debugger.addBreakPoint(module, 0x0008B6E6);
+            debugger.addBreakPoint(module, 0x06b6d);
         }*/
     }
 }

@@ -168,19 +168,7 @@ public class VirtualMemory implements Memory {
 
     private Module loadInternal(File elfFile, WriteHook unpackHook, boolean forceCallInit) throws IOException {
         Module module = loadInternal(elfFile.getParentFile(), elfFile, unpackHook);
-        for (Module m : modules.values()) {
-            for (Iterator<ModuleSymbol> iterator = m.getUnresolvedSymbol().iterator(); iterator.hasNext(); ) {
-                ModuleSymbol moduleSymbol = iterator.next();
-                ModuleSymbol resolved = moduleSymbol.resolve(modules.values(), true, syscallHandler.dlfcn);
-                if (resolved != null) {
-                    log.debug("[" + moduleSymbol.soName + "]" + moduleSymbol.symbol.getName() + " symbol resolved to " + resolved.toSoName);
-                    resolved.relocation();
-                    iterator.remove();
-                } else {
-                    log.info("[" + moduleSymbol.soName + "]symbol " + moduleSymbol.symbol.getName() + " is missing relocationAddr=" + moduleSymbol.relocationAddr);
-                }
-            }
-        }
+        resolveSymbols();
         if (callInitFunction || forceCallInit) {
             for (Module m : modules.values()) {
                 boolean forceCall = forceCallInit && m == module;
@@ -194,6 +182,22 @@ public class VirtualMemory implements Memory {
         return module;
     }
 
+    private void resolveSymbols() throws IOException {
+        for (Module m : modules.values()) {
+            for (Iterator<ModuleSymbol> iterator = m.getUnresolvedSymbol().iterator(); iterator.hasNext(); ) {
+                ModuleSymbol moduleSymbol = iterator.next();
+                ModuleSymbol resolved = moduleSymbol.resolve(modules.values(), true, syscallHandler.dlfcn);
+                if (resolved != null) {
+                    log.debug("[" + moduleSymbol.soName + "]" + moduleSymbol.symbol.getName() + " symbol resolved to " + resolved.toSoName);
+                    resolved.relocation();
+                    iterator.remove();
+                } else {
+                    log.info("[" + moduleSymbol.soName + "]symbol " + moduleSymbol.symbol.getName() + " is missing relocationAddr=" + moduleSymbol.relocationAddr);
+                }
+            }
+        }
+    }
+
     private ModuleListener moduleListener;
 
     @Override
@@ -201,13 +205,29 @@ public class VirtualMemory implements Memory {
         moduleListener = listener;
     }
 
+    /**
+     * dlopen调用init_array会崩溃
+     */
     @Override
     public Module loadLibrary(String filename) throws IOException {
         File file = libraryResolver == null ? null : libraryResolver.resolveLibrary(filename);
         if (file == null) {
             return null;
         }
-        return load(file);
+        // return load(file);
+        Module module = loadInternal(file.getParentFile(), file, null);
+        resolveSymbols();
+        if (callInitFunction) {
+            for (Module m : modules.values()) {
+                for (InitFunction initFunction : m.initFunctionList) {
+                    List<String> list = initFunction.addressList();
+                    if (!list.isEmpty()) {
+                        log.info("[" + m.name + "]InitFunction: " + list);
+                    }
+                }
+            }
+        }
+        return module;
     }
 
     @Override

@@ -26,7 +26,7 @@ public class Module {
     private final SymbolLocator dynsym;
     public final String name;
     private final List<ModuleSymbol> unresolvedSymbol;
-    private final List<InitFunction> initFunctionList;
+    final List<InitFunction> initFunctionList;
     private final Map<String, Module> neededLibraries;
     private final List<MemRegion> regions;
 
