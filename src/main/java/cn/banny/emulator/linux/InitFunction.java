@@ -16,6 +16,8 @@ class InitFunction {
     private final String soName;
     private final long[] addresses;
 
+    private final List<String> list;
+
     InitFunction(long load_base, String soName, ElfInitArray initArray) {
         this(load_base, soName, initArray.array);
     }
@@ -24,6 +26,13 @@ class InitFunction {
         this.load_base = load_base;
         this.soName = soName;
         this.addresses = addresses;
+
+        list = new ArrayList<>(addresses.length);
+        for (long addr : addresses) {
+            if (addr != 0) {
+                list.add("0x" + Long.toHexString(addr));
+            }
+        }
     }
 
     void call(Emulator emulator) {
@@ -47,12 +56,6 @@ class InitFunction {
     }
 
     List<String> addressList() {
-        List<String> list = new ArrayList<>();
-        for (long addr : addresses) {
-            if (addr != 0) {
-                list.add("0x" + Long.toHexString(addr));
-            }
-        }
         return list;
     }
 

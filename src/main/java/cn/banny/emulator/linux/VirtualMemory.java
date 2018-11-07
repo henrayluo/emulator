@@ -223,6 +223,7 @@ public class VirtualMemory implements Memory {
                     List<String> list = initFunction.addressList();
                     if (!list.isEmpty()) {
                         log.info("[" + m.name + "]InitFunction: " + list);
+                        list.clear();
                     }
                 }
             }
