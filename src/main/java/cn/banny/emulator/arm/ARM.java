@@ -26,7 +26,7 @@ public class ARM {
 
     private static final int CPSR_THUMB_BIT = 5;
 
-    static boolean isThumb(Unicorn unicorn) {
+    public static boolean isThumb(Unicorn unicorn) {
         Number cpsr = (Number) unicorn.reg_read(ArmConst.UC_ARM_REG_CPSR);
         return getBit(cpsr.intValue(), ARM.CPSR_THUMB_BIT) == 1;
     }
@@ -240,12 +240,12 @@ public class ARM {
         }
     }
 
-    public static String assembleDetail(Memory memory, Capstone.CsInsn ins, long address) {
+    public static String assembleDetail(Memory memory, Capstone.CsInsn ins, long address, boolean thumb) {
         StringBuilder sb = new StringBuilder();
         Module module = memory.findModuleByAddress(address);
         if (module != null) {
             sb.append(String.format("[%" + memory.getMaxLengthSoName().length() + "s] ", module.name));
-            sb.append(String.format("[0x%0" + Long.toHexString(memory.getMaxSizeOfSo()).length() + "x] ", address - module.base));
+            sb.append(String.format("[0x%0" + Long.toHexString(memory.getMaxSizeOfSo()).length() + "x] ", address - module.base + (thumb ? 1 : 0)));
         }
         sb.append("[");
         if (ins.size == 2) {

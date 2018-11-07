@@ -60,9 +60,15 @@ public abstract class AbstractEmulator implements Emulator {
         this.pid = Integer.parseInt(pid);
     }
 
+    private Debugger debugger;
+
     @Override
     public Debugger attach() {
-        Debugger debugger = new SimpleDebugger();
+        if (debugger != null) {
+            return debugger;
+        }
+
+        debugger = new SimpleDebugger();
         this.unicorn.hook_add(debugger, 1, 0, this);
         this.timeout = 0;
         return debugger;
@@ -148,7 +154,8 @@ public abstract class AbstractEmulator implements Emulator {
             setErrno(0);
             unicorn.emu_start(begin, until, timeout, (long) 0);
         } catch (RuntimeException e) {
-            showRegs();
+            e.printStackTrace();
+            attach().debug(this);
             IOUtils.closeQuietly(this);
             throw e;
         } finally {

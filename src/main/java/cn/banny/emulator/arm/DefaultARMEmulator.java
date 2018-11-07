@@ -76,7 +76,7 @@ public class DefaultARMEmulator extends AbstractEmulator implements ARMEmulator 
 
     @Override
     public boolean printAssemble(long address, int size) {
-        printAssemble(disassemble(address, size, 0), address);
+        printAssemble(disassemble(address, size, 0), address, ARM.isThumb(unicorn));
         return true;
     }
 
@@ -87,11 +87,11 @@ public class DefaultARMEmulator extends AbstractEmulator implements ARMEmulator 
         return thumb ? capstoneThumb.disasm(code, address, count) : capstoneArm.disasm(code, address, count);
     }
 
-    private void printAssemble(Capstone.CsInsn[] insns, long address) {
+    private void printAssemble(Capstone.CsInsn[] insns, long address, boolean thumb) {
         StringBuilder sb = new StringBuilder();
         for (Capstone.CsInsn ins : insns) {
             sb.append("### Trace Instruction ");
-            sb.append(ARM.assembleDetail(memory, ins, address));
+            sb.append(ARM.assembleDetail(memory, ins, address, thumb));
             sb.append('\n');
             address += ins.size;
         }
@@ -111,22 +111,10 @@ public class DefaultARMEmulator extends AbstractEmulator implements ARMEmulator 
 
     @Override
     public Number[] eFunc(long begin, Number... arguments) {
-        byte[] nop;
-        if ((begin & 1) == 1) { // thumb
-            nop = new byte[] { 0x00, (byte) 0xbf };
-        } else {
-            nop = new byte[] { 0x00, (byte) 0xf0, 0x20, (byte) 0xe3 };
-        }
+        long sp = initializeTLS(this.memory.getStackPointer());
+        final long tls = sp;
 
-        long sp = this.memory.getStackPointer();
-        sp -= 4;
-        final long lr = sp;
-        unicorn.mem_write(lr, nop);
-
-        sp = initializeAuxiliaryVector(sp);
-        final long auxiliary_vector_addr = sp;
-
-        final List<Number> rets = new ArrayList<>(10);
+        final List<Number> numbers = new ArrayList<>(10);
         int i = 0;
         int[] regArgs = ARM.getRegArgs();
         final Arguments args = new Arguments(unicorn, sp, arguments);
@@ -145,18 +133,20 @@ public class DefaultARMEmulator extends AbstractEmulator implements ARMEmulator 
             i++;
         }
 
-        unicorn.reg_write(UC_ARM_REG_C13_C0_3, auxiliary_vector_addr); // errno
+        unicorn.reg_write(UC_ARM_REG_C13_C0_3, tls);
+
+        final long lr = 0xffff0fa0L;
         initialize(sp, lr);
         emulate(begin, lr, timeout);
-        rets.add(0, (Number) unicorn.reg_read(ArmConst.UC_ARM_REG_R0));
-        rets.addAll(args.pointers);
-        return rets.toArray(new Number[0]);
+        numbers.add(0, (Number) unicorn.reg_read(ArmConst.UC_ARM_REG_R0));
+        numbers.addAll(args.pointers);
+        return numbers.toArray(new Number[0]);
     }
 
     @Override
     public Number eFunc(long begin, UnicornPointer sp) {
-        long auxiliary_vector_addr = initializeAuxiliaryVector(this.memory.getStackPointer());
-        unicorn.reg_write(UC_ARM_REG_C13_C0_3, auxiliary_vector_addr); // errno
+        long tls = initializeTLS(this.memory.getStackPointer());
+        unicorn.reg_write(UC_ARM_REG_C13_C0_3, tls);
 
         initialize(sp.peer, 0);
         emulate(begin, 0, timeout);
@@ -186,7 +176,7 @@ public class DefaultARMEmulator extends AbstractEmulator implements ARMEmulator 
 
     @Override
     public Unicorn eBlock(long begin, long until) {
-        long sp = initializeAuxiliaryVector(this.memory.getStackPointer());
+        long sp = initializeTLS(this.memory.getStackPointer());
         unicorn.reg_write(UC_ARM_REG_C13_C0_3, sp); // errno
 
         initialize(sp, 0);
@@ -195,8 +185,8 @@ public class DefaultARMEmulator extends AbstractEmulator implements ARMEmulator 
         return unicorn;
     }
 
-    private long initializeAuxiliaryVector(long sp) {
-        sp -= 0x2c;
+    private long initializeTLS(long sp) {
+        sp -= 0x400; // reserve space for pthread_internal_t
         final Pointer thread = UnicornPointer.pointer(unicorn, sp);
 
         sp -= 4;
@@ -211,7 +201,7 @@ public class DefaultARMEmulator extends AbstractEmulator implements ARMEmulator 
         assert programNamePointer != null;
         programNamePointer.setPointer(0, programName);
 
-        sp -= 0x10;
+        sp -= 0x100;
         final Pointer vector = UnicornPointer.pointer(unicorn, sp);
         assert vector != null;
         vector.setInt(0, 25); // AT_RANDOM is a pointer to 16 bytes of randomness on the stack.
@@ -222,21 +212,21 @@ public class DefaultARMEmulator extends AbstractEmulator implements ARMEmulator 
         assert environ != null;
         environ.setInt(0, 0);
 
-        sp -= 0x10;
-        final Pointer tls = UnicornPointer.pointer(unicorn, sp);
-        assert tls != null;
-        tls.setPointer(4, programNamePointer);
-        tls.setPointer(8, environ);
-        tls.setPointer(0xc, vector);
+        sp -= 0x100;
+        final Pointer argv = UnicornPointer.pointer(unicorn, sp);
+        assert argv != null;
+        argv.setPointer(4, programNamePointer);
+        argv.setPointer(8, environ);
+        argv.setPointer(0xc, vector);
 
         sp -= (0x80 * 4); // tls size
-        final Pointer auxiliary_vector = UnicornPointer.pointer(unicorn, sp);
-        assert auxiliary_vector != null;
-        auxiliary_vector.setPointer(4, thread);
-        this.errno = auxiliary_vector.share(8);
-        auxiliary_vector.setPointer(0xc, tls);
+        final Pointer tls = UnicornPointer.pointer(unicorn, sp);
+        assert tls != null;
+        tls.setPointer(4, thread);
+        this.errno = tls.share(8);
+        tls.setPointer(0xc, argv);
 
-        log.debug("initializeAuxiliaryVector " + auxiliary_vector + ", tls=" + tls + ", vector=" + vector);
+        log.debug("initializeTLS tls=" + tls + ", argv=" + argv + ", vector=" + vector + ", thread=" + thread + ", environ=" + environ);
         return sp;
     }
 

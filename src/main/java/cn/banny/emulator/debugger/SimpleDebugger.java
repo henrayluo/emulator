@@ -64,7 +64,7 @@ public class SimpleDebugger implements Debugger {
             historyList.remove(0);
         }
         Capstone.CsInsn[] insns = emulator.disassemble(address, size, 0);
-        historyList.add(new CodeHistory(address, ARM.assembleDetail(emulator.getMemory(), insns[0], address)));
+        historyList.add(new CodeHistory(address, ARM.assembleDetail(emulator.getMemory(), insns[0], address, ARM.isThumb(u))));
 
         if (singleStep) {
             loop(emulator, u, address, size);
@@ -80,20 +80,32 @@ public class SimpleDebugger implements Debugger {
         }
     }
 
+    @Override
+    public void debug(Emulator emulator) {
+        Unicorn unicorn = emulator.getUnicorn();
+        long address = ((Number) unicorn.reg_read(ArmConst.UC_ARM_REG_PC)).intValue() & 0xffffffffL;
+        loop(emulator, unicorn, address, 0);
+    }
+
     private boolean singleStep;
 
     private void loop(Emulator emulator, Unicorn u, long address, int size) {
-        System.out.println("debugger break at: 0x" + Long.toHexString(address) + ", size=" + size);
-        emulator.showRegs();
-        disassemble(emulator, address, size);
+        System.out.println("debugger break at: 0x" + Long.toHexString(address));
         singleStep = false;
+        boolean thumb = ARM.isThumb(u);
+        try {
+            emulator.showRegs();
+            disassemble(emulator, address, size, thumb);
+        } catch (UnicornException e) {
+            e.printStackTrace();
+        }
 
         Scanner scanner = new Scanner(System.in);
         String line;
         while ((line = scanner.nextLine()) != null) {
             try {
                 if ("d".equals(line) || "dis".equals(line)) {
-                    disassemble(emulator, address, size);
+                    disassemble(emulator, address, size, thumb);
                     continue;
                 }
                 if (line.startsWith("m")) {
@@ -103,7 +115,13 @@ public class SimpleDebugger implements Debugger {
                     try {
                         if (tokens.length >= 2) {
                             command = tokens[0];
-                            length = Integer.parseInt(tokens[1]);
+                            int radix = 10;
+                            String str = tokens[1];
+                            if (str.startsWith("0x")) {
+                                str = str.substring(2);
+                                radix = 16;
+                            }
+                            length = Integer.parseInt(str, radix);
                         }
                     } catch(NumberFormatException ignored) {}
 
@@ -166,7 +184,7 @@ public class SimpleDebugger implements Debugger {
         }
     }
 
-    private void disassemble(Emulator emulator, long address, int size) {
+    private void disassemble(Emulator emulator, long address, int size, boolean thumb) {
         StringBuilder sb = new StringBuilder();
         for (CodeHistory history : historyList) {
             if (history.address == address) {
@@ -179,8 +197,12 @@ public class SimpleDebugger implements Debugger {
         long nextAddr = address + size;
         Capstone.CsInsn[] insns = emulator.disassemble(nextAddr, 4 * 10, 10);
         for (Capstone.CsInsn ins : insns) {
-            sb.append("    ");
-            sb.append(ARM.assembleDetail(emulator.getMemory(), ins, nextAddr)).append('\n');
+            if (nextAddr == address) {
+                sb.append("=>  ");
+            } else {
+                sb.append("    ");
+            }
+            sb.append(ARM.assembleDetail(emulator.getMemory(), ins, nextAddr, thumb)).append('\n');
             nextAddr += ins.size;
         }
         System.out.println(sb);

@@ -11,6 +11,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import unicorn.ArmConst;
 import unicorn.Unicorn;
+import unicorn.UnicornException;
 
 import java.util.Calendar;
 import java.util.HashMap;
@@ -48,6 +49,9 @@ public class LinuxSyscallHandler extends SyscallHandler {
                         return;
                     case 6:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, close(u, emulator));
+                        return;
+                    case 11:
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, execve(u, emulator));
                         return;
                     case 19:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, lseek(u, emulator));
@@ -112,6 +116,9 @@ public class LinuxSyscallHandler extends SyscallHandler {
                     case 132:
                         syscall = "getpgid";
                         break;
+                    case 136:
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, personality(u));
+                        return;
                     case 142:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, newselect(u, emulator));
                         return;
@@ -215,6 +222,38 @@ public class LinuxSyscallHandler extends SyscallHandler {
         if (log.isDebugEnabled()) {
             int pc = ((Number) u.reg_read(ArmConst.UC_ARM_REG_PC)).intValue();
             log.warn("handleInterrupt intno=" + intno + ", NR=" + NR + ", PC=0x" + Integer.toHexString(pc) + ", syscall=" + syscall, exception);
+        }
+
+        if (exception instanceof UnicornException) {
+            throw (UnicornException) exception;
+        }
+    }
+
+    private int execve(Unicorn u, Emulator emulator) {
+        Pointer filename = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R0);
+        Pointer argv = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
+        Pointer envp = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R2);
+        assert filename != null;
+        if (log.isDebugEnabled()) {
+            log.debug("execve filename=" + filename.getString(0) + ", argv=" + argv + ", envp=" + envp);
+        }
+        emulator.setErrno(Emulator.EACCES);
+        return -1;
+    }
+
+    private long persona;
+
+    private int personality(Unicorn u) {
+        long persona = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue() & 0xffffffffL;
+        if (log.isDebugEnabled()) {
+            log.debug("personality persona=0x" + Long.toHexString(persona));
+        }
+        int old = (int) this.persona;
+        if (persona == 0xffffffffL) {
+            return old;
+        } else {
+            this.persona = persona;
+            return old;
         }
     }
 

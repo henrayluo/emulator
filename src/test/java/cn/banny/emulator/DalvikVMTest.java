@@ -3,10 +3,10 @@ package cn.banny.emulator;
 import java.io.File;
 import java.io.IOException;
 
-public class SSHDebug {
+public class DalvikVMTest {
 
     public static void main(String[] args) throws IOException {
-        RunExecutable.run(new File("../example_binaries/ssh"), "-p", "4446", "root@p.gzmtx.cn");
+        RunExecutable.run(new File("../example_binaries/dalvikvm"));
     }
 
 }
