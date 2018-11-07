@@ -321,7 +321,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
 
         FileIO io = fdMap.get(fd);
         if (io == null) {
-            emulator.setErrno(Emulator.EBADF);
+            emulator.getMemory().setErrno(Emulator.EBADF);
             return -1;
         } else {
             return io.llseek(offset_high, offset_low, result, whence);
@@ -334,7 +334,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
         if (log.isDebugEnabled()) {
             log.debug("access pathname=" + pathname.getString(0) + ", mode=" + mode);
         }
-        emulator.setErrno(Emulator.EACCES);
+        emulator.getMemory().setErrno(Emulator.EACCES);
         return -1;
     }
 
@@ -357,7 +357,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
             }
             log.debug("execve filename=" + filename.getString(0) + ", args=" + args + ", env=" + env);
         }
-        emulator.setErrno(Emulator.EACCES);
+        emulator.getMemory().setErrno(Emulator.EACCES);
         return -1;
     }
 
@@ -386,7 +386,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
 
         FileIO io = fdMap.get(sockfd);
         if (io == null) {
-            emulator.setErrno(Emulator.EBADF);
+            emulator.getMemory().setErrno(Emulator.EBADF);
             return -1;
         }
         return io.shutdown(how);
@@ -397,7 +397,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
 
         FileIO io = fdMap.get(oldfd);
         if (io == null) {
-            emulator.setErrno(Emulator.EBADF);
+            emulator.getMemory().setErrno(Emulator.EBADF);
             return -1;
         }
         if (log.isDebugEnabled()) {
@@ -440,7 +440,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
             }
         }
         if (exceptfds != null) {
-            emulator.setErrno(Emulator.ENOMEM);
+            emulator.getMemory().setErrno(Emulator.ENOMEM);
             return -1;
         }
         if (writefds != null) {
@@ -486,7 +486,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
 
         FileIO io = fdMap.get(sockfd);
         if (io == null) {
-            emulator.setErrno(Emulator.EBADF);
+            emulator.getMemory().setErrno(Emulator.EBADF);
             return -1;
         }
 
@@ -553,7 +553,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
         if (log.isDebugEnabled()) {
             log.debug("mkdir pathname=" + pathname.getString(0) + ", mode=" + mode);
         }
-        emulator.setErrno(Emulator.EACCES);
+        emulator.getMemory().setErrno(Emulator.EACCES);
         return -1;
     }
 
@@ -574,7 +574,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
         if (log.isDebugEnabled()) {
             log.debug("sigprocmask how=" + how + ", set=" + set + ", oldset=" + oldset);
         }
-        emulator.setErrno(Emulator.EINVAL);
+        emulator.getMemory().setErrno(Emulator.EINVAL);
         return -1;
     }
 
@@ -606,7 +606,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
         if (log.isDebugEnabled()) {
             log.debug("reboot magic=" + magic + ", magic2=" + magic2 + ", cmd=" + cmd + ", arg=" + arg);
         }
-        emulator.setErrno(Emulator.EPERM);
+        emulator.getMemory().setErrno(Emulator.EPERM);
         return -1;
     }
 
@@ -649,6 +649,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
     private static final int SIGHUP = 1;
     private static final int SIGINT = 2;
     private static final int SIGQUIT = 3;
+    private static final int SIGABRT = 6;
     private static final int SIGPIPE = 13;
     private static final int SIGALRM = 14;
     private static final int SIGTERM = 15;
@@ -677,6 +678,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
             case SIGHUP:
             case SIGINT:
             case SIGQUIT:
+            case SIGABRT:
             case SIGPIPE:
             case SIGALRM:
             case SIGTERM:
@@ -708,7 +710,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
         }
         FileIO file = fdMap.get(sockfd);
         if (file == null) {
-            emulator.setErrno(Emulator.EBADF);
+            emulator.getMemory().setErrno(Emulator.EBADF);
             return -1;
         }
         return file.sendto(data, flags, dest_addr, addrlen);
@@ -725,7 +727,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
 
         FileIO file = fdMap.get(sockfd);
         if (file == null) {
-            emulator.setErrno(Emulator.EBADF);
+            emulator.getMemory().setErrno(Emulator.EBADF);
             return -1;
         }
         return file.connect(addr, addrlen);
@@ -740,7 +742,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
         }
         FileIO file = fdMap.get(sockfd);
         if (file == null) {
-            emulator.setErrno(Emulator.EBADF);
+            emulator.getMemory().setErrno(Emulator.EBADF);
             return -1;
         }
         return file.getsockname(addr, addrlen);
@@ -758,7 +760,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
 
         FileIO file = fdMap.get(sockfd);
         if (file == null) {
-            emulator.setErrno(Emulator.EBADF);
+            emulator.getMemory().setErrno(Emulator.EBADF);
             return -1;
         }
         return file.getsockopt(level, optname, optval, optlen);
@@ -776,7 +778,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
 
         FileIO file = fdMap.get(sockfd);
         if (file == null) {
-            emulator.setErrno(Emulator.EBADF);
+            emulator.getMemory().setErrno(Emulator.EBADF);
             return -1;
         }
         return file.setsockopt(level, optname, optval, optlen);
@@ -956,7 +958,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
 
         FileIO file = fdMap.get(fd);
         if (file == null) {
-            emulator.setErrno(Emulator.EBADF);
+            emulator.getMemory().setErrno(Emulator.EBADF);
             return -1;
         }
         return file.fcntl(cmd, arg);
@@ -977,7 +979,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
 
         FileIO file = fdMap.get(fd);
         if (file == null) {
-            emulator.setErrno(Emulator.EBADF);
+            emulator.getMemory().setErrno(Emulator.EBADF);
             return -1;
         }
 
@@ -1131,7 +1133,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
         }
         FileIO file = fdMap.get(fd);
         if (file == null) {
-            emulator.setErrno(Emulator.EBADF);
+            emulator.getMemory().setErrno(Emulator.EBADF);
             return -1;
         }
         return file.lseek(offset, whence);
@@ -1148,7 +1150,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
             file.close();
             return 0;
         } else {
-            emulator.setErrno(Emulator.EBADF);
+            emulator.getMemory().setErrno(Emulator.EBADF);
             return -1;
         }
     }
@@ -1162,7 +1164,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
 
         FileIO file = fdMap.get(fd);
         if (file == null) {
-            emulator.setErrno(Emulator.EBADF);
+            emulator.getMemory().setErrno(Emulator.EBADF);
             return -1;
         }
         if (log.isDebugEnabled()) {
@@ -1181,7 +1183,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
 
         FileIO file = fdMap.get(fd);
         if (file == null) {
-            emulator.setErrno(Emulator.EBADF);
+            emulator.getMemory().setErrno(Emulator.EBADF);
             return -1;
         }
         return file.ioctl(u, request, argp);
@@ -1198,7 +1200,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
 
         FileIO file = fdMap.get(fd);
         if (file == null) {
-            emulator.setErrno(Emulator.EBADF);
+            emulator.getMemory().setErrno(Emulator.EBADF);
             return -1;
         }
         return file.write(data);
@@ -1214,7 +1216,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
 
         FileIO file = fdMap.get(fd);
         if (file == null) {
-            emulator.setErrno(Emulator.EBADF);
+            emulator.getMemory().setErrno(Emulator.EBADF);
             return -1;
         }
         return file.read(u, buffer, count);
@@ -1229,7 +1231,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
 
         FileIO old = fdMap.get(oldfd);
         if (old == null) {
-            emulator.setErrno(Emulator.EBADF);
+            emulator.getMemory().setErrno(Emulator.EBADF);
             return -1;
         }
 

@@ -1,5 +1,6 @@
 package cn.banny.emulator;
 
+import cn.banny.emulator.arm.AndroidARMEmulator;
 import cn.banny.emulator.linux.AndroidResolver;
 import cn.banny.emulator.linux.Module;
 import cn.banny.emulator.linux.ModuleListener;
@@ -14,13 +15,12 @@ import java.io.IOException;
 class RunExecutable {
 
     static void run(File executable, ModuleListener listener, Object...args) throws IOException {
-        final Emulator emulator = EmulatorFactory.createARMEmulator();
+        final Emulator emulator = new AndroidARMEmulator(executable.getName());
         try {
             long start = System.currentTimeMillis();
             Memory memory = emulator.getMemory();
-            memory.setLibraryResolver(new AndroidResolver(new File("../android"), 19));
+            memory.setLibraryResolver(new AndroidResolver(new File("android"), 19));
 
-            emulator.setProcessName(executable.getName());
             memory.setCallInitFunction();
             if (listener != null) {
                 memory.setModuleListener(listener);
@@ -36,7 +36,7 @@ class RunExecutable {
             Number __errno = libc.callFunction(emulator, "__errno")[0];
             Pointer pointer = UnicornPointer.pointer(emulator.getUnicorn(), __errno.intValue() & 0xffffffffL);
             assert pointer != null;
-            emulator.setErrno(Emulator.EACCES);
+            emulator.getMemory().setErrno(Emulator.EACCES);
             int value = pointer.getInt(0);
             assert value == Emulator.EACCES;
 

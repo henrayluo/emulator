@@ -82,7 +82,7 @@ public class AndroidResolver implements LibraryResolver {
         }
 
         File file = new File(androidDir, path);
-        if (file.canRead()) {
+        if (file.isFile() && file.canRead()) {
             return file;
         }
         return null;

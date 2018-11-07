@@ -28,4 +28,8 @@ public class StringNumber extends Number {
         throw new AbstractMethodError();
     }
 
+    @Override
+    public String toString() {
+        return value;
+    }
 }

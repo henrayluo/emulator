@@ -36,7 +36,7 @@ class InitFunction {
             // emulator.traceCode();
             // emulator.traceWrite();
             long start = System.currentTimeMillis();
-            emulator.eFunc(load_base + addr);
+            emulator.eInit(load_base + addr);
             if (log.isDebugEnabled()) {
                 System.err.println("[" + soName + "]CallInitFunction: 0x" + Long.toHexString(addr) + ", offset=" + (System.currentTimeMillis() - start) + "ms");
             }

@@ -5,7 +5,6 @@ import cn.banny.emulator.ByteArrayNumber;
 import cn.banny.emulator.Emulator;
 import cn.banny.emulator.Memory;
 import cn.banny.emulator.StringNumber;
-import cn.banny.emulator.arm.ARM;
 import cn.banny.emulator.pointer.UnicornPointer;
 import com.sun.jna.Pointer;
 import net.fornwall.jelf.ElfSymbol;
@@ -108,53 +107,55 @@ public class Module {
 
     public int callEntry(Emulator emulator, Object... args) {
         if (entryPoint <= 0) {
-            throw new IllegalStateException("entry point invalid");
+            throw new IllegalStateException("Invalid entry point");
         }
 
         final Unicorn unicorn = emulator.getUnicorn();
         Memory memory = emulator.getMemory();
-        final int kernelArgumentBlockSize = 0x1000; // 4k
-        long stack = memory.allocateStack(kernelArgumentBlockSize);
-        unicorn.mem_write(stack - 0x1000, new byte[0x1000]);
-        long sp = stack;
+        final long stack = memory.allocateStack(0);
 
         int argc = 0;
         List<Pointer> argv = new ArrayList<>();
 
-        sp -= ARM.writeCString(unicorn, sp, emulator.getProcessName());
-        argv.add(UnicornPointer.pointer(unicorn, sp));
+        argv.add(memory.writeStackString(emulator.getProcessName()));
         argc++;
 
         for (int i = 0; args != null && i < args.length; i++) {
             String arg = String.valueOf(args[i]);
-            sp -= ARM.writeCString(unicorn, sp, arg);
-            argv.add(UnicornPointer.pointer(unicorn, sp));
+            argv.add(memory.writeStackString(arg));
             argc++;
         }
 
-        sp -= 0x100;
-        UnicornPointer kernelArgumentBlock = UnicornPointer.pointer(unicorn, sp);
+        Pointer auxvPointer = UnicornPointer.pointer(unicorn, memory.allocateStack(4));
+        assert auxvPointer != null;
+        auxvPointer.setPointer(0, null);
+
+        Pointer envPointer = UnicornPointer.pointer(unicorn, memory.allocateStack(4));
+        assert envPointer != null;
+        envPointer.setPointer(0, null);
+
+        Pointer pointer = UnicornPointer.pointer(unicorn, memory.allocateStack(4));
+        assert pointer != null;
+        pointer.setPointer(0, null); // NULL-terminated argv
+
+        Collections.reverse(argv);
+        for (Pointer arg : argv) {
+            pointer = UnicornPointer.pointer(unicorn, memory.allocateStack(4));
+            assert pointer != null;
+            pointer.setPointer(0, arg);
+        }
+
+        UnicornPointer kernelArgumentBlock = UnicornPointer.pointer(unicorn, memory.allocateStack(4));
         assert kernelArgumentBlock != null;
         kernelArgumentBlock.setInt(0, argc);
 
-        Pointer argvPointer = kernelArgumentBlock.share(4);
-        for (int i = 0; i < argv.size(); i++) {
-            argvPointer.setPointer(4 * i, argv.get(i));
-        }
-        argvPointer.setInt(4 * argv.size(), 0);
-
-        Pointer envPointer = argvPointer.share(4 * argv.size() + 4);
-        envPointer.setInt(0, 0);
-
-        Pointer auxvPointer = envPointer.share(4);
-        auxvPointer.setInt(0, 0);
-
         if (log.isDebugEnabled()) {
+            long sp = memory.allocateStack(0);
             byte[] data = unicorn.mem_read(sp, stack - sp);
-            Inspector.inspect(data, "kernelArgumentBlock=" + kernelArgumentBlock + ", argvPointer=" + argvPointer + ", envPointer=" + envPointer + ", auxvPointer=" + auxvPointer);
+            Inspector.inspect(data, "kernelArgumentBlock=" + kernelArgumentBlock + ", envPointer=" + envPointer + ", auxvPointer=" + auxvPointer);
         }
 
-        return emulator.eFunc(base + entryPoint, kernelArgumentBlock).intValue();
+        return emulator.eEntry(base + entryPoint, kernelArgumentBlock.peer).intValue();
     }
 
     public Number[] callFunction(Emulator emulator, String symbolName, Object... args) throws IOException {

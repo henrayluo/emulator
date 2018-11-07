@@ -110,7 +110,7 @@ public class StreamSocket extends SocketIO implements FileIO {
             return 0;
         } catch (IOException e) {
             log.debug("connect failed", e);
-            emulator.setErrno(Emulator.ECONNREFUSED);
+            emulator.getMemory().setErrno(Emulator.ECONNREFUSED);
             return -1;
         }
     }

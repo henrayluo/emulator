@@ -3,3 +3,4 @@
 /emulator.iml
 /.idea/
 /unpack/*_unpacked.so
+/hs_err_pid*.log

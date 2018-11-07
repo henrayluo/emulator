@@ -231,7 +231,7 @@ public class LocalSocketIO extends SocketIO implements FileIO {
                 return 0;
         }
 
-        emulator.setErrno(Emulator.EPERM);
+        emulator.getMemory().setErrno(Emulator.EPERM);
         return -1;
     }
 

@@ -17,6 +17,8 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.util.concurrent.TimeUnit;
 
+import static unicorn.ArmConst.UC_ARM_REG_CPSR;
+
 /**
  * abstract emulator
  * Created by zhkl0228 on 2017/5/2.
@@ -37,9 +39,11 @@ public abstract class AbstractEmulator implements Emulator {
 
     private final SyscallHandler syscallHandler;
 
-    public AbstractEmulator(int unicorn_arch, int unicorn_mode) {
+    public AbstractEmulator(int unicorn_arch, int unicorn_mode, String processName) {
         super();
         this.unicorn = new Unicorn(unicorn_arch, unicorn_mode);
+        this.processName = processName == null ? "emulator" : processName;
+        switchUserMode();
 
         unicorn.hook_add(new EventMemHook() {
             @Override
@@ -61,6 +65,12 @@ public abstract class AbstractEmulator implements Emulator {
         String name = ManagementFactory.getRuntimeMXBean().getName();
         String pid = name.split("@")[0];
         this.pid = Integer.parseInt(pid);
+    }
+
+    private void switchUserMode() {
+        int value = ((Number) unicorn.reg_read(UC_ARM_REG_CPSR)).intValue();
+        value &= 0x7ffffff0;
+        unicorn.reg_write(UC_ARM_REG_CPSR, value);
     }
 
     private Debugger debugger;
@@ -137,34 +147,44 @@ public abstract class AbstractEmulator implements Emulator {
      * @param timeout  Duration to emulate the code (in microseconds). When this value is 0, we will emulate the code in infinite time, until the code is finished.
      * @param alts     The function replacements
      */
-    protected synchronized final void emulate(long begin, long until, long timeout, Alt... alts) {
+    protected final Number emulate(long begin, long until, long timeout, boolean entry, Alt... alts) {
         try {
-            unicorn.hook_del(readHook);
-            unicorn.hook_del(writeHook);
-            unicorn.hook_del(codeHook);
+            long context = unicorn.context_alloc();
+            unicorn.context_save(context);
 
-            if (traceMemoryRead) {
-                unicorn.hook_add(readHook, traceMemoryReadBegin, traceMemoryReadEnd, null);
-            }
-            if (traceMemoryWrite) {
-                unicorn.hook_add(writeHook, traceMemoryWriteBegin, traceMemoryWriteEnd, null);
-            }
-            if (traceInstruction) {
-                codeHook.initialize(traceInstructionBegin, traceInstructionEnd, alts);
-                unicorn.hook_add(codeHook, traceInstructionBegin, traceInstructionEnd, null);
+            if (entry) {
+                if (traceMemoryRead) {
+                    traceMemoryRead = false;
+                    unicorn.hook_add(readHook, traceMemoryReadBegin, traceMemoryReadEnd, null);
+                }
+                if (traceMemoryWrite) {
+                    traceMemoryWrite = false;
+                    unicorn.hook_add(writeHook, traceMemoryWriteBegin, traceMemoryWriteEnd, null);
+                }
+                if (traceInstruction) {
+                    traceInstruction = false;
+                    codeHook.initialize(traceInstructionBegin, traceInstructionEnd, alts);
+                    unicorn.hook_add(codeHook, traceInstructionBegin, traceInstructionEnd, null);
+                }
             }
 
-            setErrno(0);
             unicorn.emu_start(begin, until, timeout, (long) 0);
+
+            Number r0 = (Number) unicorn.reg_read(ArmConst.UC_ARM_REG_R0);
+            unicorn.context_restore(context);
+            unicorn.free(context);
+            return r0;
         } catch (RuntimeException e) {
             e.printStackTrace();
             attach().debug(this);
             IOUtils.closeQuietly(this);
             throw e;
         } finally {
-            traceMemoryRead = false;
-            traceMemoryWrite = false;
-            traceInstruction = false;
+            if (entry) {
+                unicorn.hook_del(readHook);
+                unicorn.hook_del(writeHook);
+                unicorn.hook_del(codeHook);
+            }
         }
     }
 
@@ -223,12 +243,7 @@ public abstract class AbstractEmulator implements Emulator {
         return unicorn;
     }
 
-    private String processName;
-
-    @Override
-    public void setProcessName(String name) {
-        this.processName = name;
-    }
+    private final String processName;
 
     @Override
     public String getProcessName() {

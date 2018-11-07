@@ -3,6 +3,7 @@ package cn.banny.emulator;
 import cn.banny.emulator.linux.IO;
 import cn.banny.emulator.linux.Module;
 import cn.banny.emulator.linux.ModuleListener;
+import cn.banny.emulator.pointer.UnicornPointer;
 import com.sun.jna.Pointer;
 
 import java.io.File;
@@ -16,9 +17,10 @@ public interface Memory extends IO {
 
     long MMAP_BASE = 0x40000000L;
 
-    long getStackPointer();
-
     long allocateStack(int size);
+    UnicornPointer writeStackString(String str);
+    UnicornPointer writeStackBytes(byte[] data);
+    void setStackPoint(long sp);
 
     void setCallInitFunction();
 
@@ -47,4 +49,9 @@ public interface Memory extends IO {
     void setModuleListener(ModuleListener listener);
 
     int stat64(String pathname, Pointer statbuf);
+
+    /**
+     * set errno
+     */
+    void setErrno(int errno);
 }

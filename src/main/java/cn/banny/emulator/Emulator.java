@@ -45,7 +45,9 @@ public interface Emulator extends Closeable, Disassembler {
 
     Number[] eFunc(long begin, Number... args);
 
-    Number eFunc(long begin, UnicornPointer sp);
+    void eInit(long begin);
+
+    Number eEntry(long begin, long sp);
 
     /**
      * emulate block
@@ -75,14 +77,8 @@ public interface Emulator extends Closeable, Disassembler {
 
     int getPid();
 
-    void setProcessName(String name);
     String getProcessName();
 
     Debugger attach();
-
-    /**
-     * set errno
-     */
-    void setErrno(int errno);
 
 }

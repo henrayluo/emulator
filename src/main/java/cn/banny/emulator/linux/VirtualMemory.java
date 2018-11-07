@@ -12,6 +12,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import unicorn.ArmConst;
 import unicorn.Unicorn;
 import unicorn.UnicornConst;
 import unicorn.WriteHook;
@@ -20,7 +21,12 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
+
+import static unicorn.ArmConst.UC_ARM_REG_C13_C0_3;
+import static unicorn.ArmConst.UC_ARM_REG_C1_C0_2;
+import static unicorn.ArmConst.UC_ARM_REG_FPEXC;
 
 public class VirtualMemory implements Memory {
 
@@ -40,12 +46,87 @@ public class VirtualMemory implements Memory {
         this.emulator = emulator;
         this.syscallHandler = syscallHandler;
 
+        enableVFP();
+
         // init stack
         final long stackSize = STACK_SIZE_OF_PAGE * emulator.getPageAlign();
         unicorn.mem_map(STACK_BASE - stackSize, stackSize, UnicornConst.UC_PROT_READ | UnicornConst.UC_PROT_WRITE);
-        sp = STACK_BASE;
 
         mmapBaseAddress = MMAP_BASE;
+
+        setStackPoint(STACK_BASE);
+        initializeTLS();
+        this.setErrno(0);
+    }
+
+    @Override
+    public long allocateStack(int size) {
+        setStackPoint(sp - size);
+        return sp;
+    }
+
+    @Override
+    public UnicornPointer writeStackString(String str) {
+        byte[] data = str.getBytes(StandardCharsets.UTF_8);
+        return writeStackBytes(Arrays.copyOf(data, data.length + 1));
+    }
+
+    @Override
+    public UnicornPointer writeStackBytes(byte[] data) {
+        int size = ARM.alignSize(data.length);
+        UnicornPointer pointer = UnicornPointer.pointer(unicorn, allocateStack(size));
+        assert pointer != null;
+        pointer.write(0, data, 0, data.length);
+        return pointer;
+    }
+
+    @Override
+    public void setStackPoint(long sp) {
+        this.sp = sp;
+        unicorn.reg_write(ArmConst.UC_ARM_REG_SP, sp);
+    }
+
+    private void enableVFP() {
+        int value = ((Number) unicorn.reg_read(UC_ARM_REG_C1_C0_2)).intValue();
+        value |= (0xf << 20);
+        unicorn.reg_write(UC_ARM_REG_C1_C0_2, value);
+        unicorn.reg_write(UC_ARM_REG_FPEXC, 0x40000000);
+    }
+
+    private void initializeTLS() {
+        final Pointer thread = UnicornPointer.pointer(unicorn, allocateStack(0x400)); // reserve space for pthread_internal_t
+
+        final Pointer __stack_chk_guard = UnicornPointer.pointer(unicorn, allocateStack(4));
+
+        final Pointer programName = writeStackString(emulator.getProcessName());
+
+        final Pointer programNamePointer = UnicornPointer.pointer(unicorn, allocateStack(4));
+        assert programNamePointer != null;
+        programNamePointer.setPointer(0, programName);
+
+        final Pointer vector = UnicornPointer.pointer(unicorn, allocateStack(0x100));
+        assert vector != null;
+        vector.setInt(0, 25); // AT_RANDOM is a pointer to 16 bytes of randomness on the stack.
+        vector.setPointer(4, __stack_chk_guard);
+
+        final Pointer environ = UnicornPointer.pointer(unicorn, allocateStack(4));
+        assert environ != null;
+        environ.setInt(0, 0);
+
+        final Pointer argv = UnicornPointer.pointer(unicorn, allocateStack(0x100));
+        assert argv != null;
+        argv.setPointer(4, programNamePointer);
+        argv.setPointer(8, environ);
+        argv.setPointer(0xc, vector);
+
+        final UnicornPointer tls = UnicornPointer.pointer(unicorn, allocateStack(0x80 * 4)); // tls size
+        assert tls != null;
+        tls.setPointer(4, thread);
+        this.errno = tls.share(8);
+        tls.setPointer(0xc, argv);
+
+        unicorn.reg_write(UC_ARM_REG_C13_C0_3, tls.peer);
+        log.debug("initializeTLS tls=" + tls + ", argv=" + argv + ", vector=" + vector + ", thread=" + thread + ", environ=" + environ);
     }
 
     @Override
@@ -126,7 +207,7 @@ public class VirtualMemory implements Memory {
         if (file == null) {
             return null;
         }
-        return loadInternal(file.getParentFile(), file, null);
+        return load(file);
     }
 
     @Override
@@ -405,7 +486,7 @@ public class VirtualMemory implements Memory {
         if (file != null) {
             return new SimpleFileIO(FileIO.O_RDWR, file, pathname).fstat(emulator, unicorn, statbuf);
         } else {
-            emulator.setErrno(Emulator.EACCES);
+            setErrno(Emulator.EACCES);
             return -1;
         }
     }
@@ -416,18 +497,6 @@ public class VirtualMemory implements Memory {
         if ((flags & /* PF_W= */2) != 0) prot |= Unicorn.UC_PROT_WRITE;
         if ((flags & /* PF_X= */1) != 0) prot |= Unicorn.UC_PROT_EXEC;
         return prot;
-    }
-
-    @Override
-    public long getStackPointer() {
-        return sp;
-    }
-
-    @Override
-    public long allocateStack(int size) {
-        long sp = this.sp;
-        this.sp -= size;
-        return sp;
     }
 
 //    private static final int MAP_SHARED =	0x01;		/* Share changes */
@@ -494,8 +563,9 @@ public class VirtualMemory implements Memory {
     public int munmap(long start, int length) {
         int aligned = (int) ARM.alignSize(length, emulator.getPageAlign());
         unicorn.mem_unmap(start, aligned);
-        if(memoryMap.remove(start) != aligned) {
-            throw new IllegalStateException("munmap failed");
+        int removed = memoryMap.remove(start);
+        if(removed != aligned) {
+            log.info("munmap removed=0x" + Long.toHexString(removed) + ", aligned=0x" + Long.toHexString(aligned));
         }
         return 0;
     }
@@ -553,7 +623,7 @@ public class VirtualMemory implements Memory {
 
         File file = libraryResolver == null ? null : libraryResolver.resolveFile(pathname);
         if (file == null) {
-            emulator.setErrno(Emulator.EACCES);
+            setErrno(Emulator.EACCES);
             return -1;
         }
 
@@ -574,6 +644,13 @@ public class VirtualMemory implements Memory {
 
         syscallHandler.fdMap.put(minFd, io);
         return minFd;
+    }
+
+    private Pointer errno;
+
+    @Override
+    public void setErrno(int errno) {
+        this.errno.setInt(0, errno);
     }
 
     @Override

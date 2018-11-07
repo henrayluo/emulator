@@ -6,7 +6,7 @@ import java.io.IOException;
 public class SSHDebug {
 
     public static void main(String[] args) throws IOException {
-        RunExecutable.run(new File("../example_binaries/ssh"), null, "-p", "4446", "root@p.gzmtx.cn");
+        RunExecutable.run(new File("example_binaries/ssh"), null, "-p", "4446", "root@p.gzmtx.cn");
     }
 
 }

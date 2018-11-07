@@ -1,7 +1,9 @@
 package org.aeonlucid;
 
+import cn.banny.emulator.Emulator;
 import cn.banny.emulator.EmulatorTest;
 import cn.banny.emulator.LibraryResolver;
+import cn.banny.emulator.arm.AndroidARMEmulator;
 import cn.banny.emulator.linux.Module;
 import cn.banny.emulator.linux.AndroidResolver;
 import unicorn.ArmConst;
@@ -13,12 +15,12 @@ public class AndroidNativeEmuTest extends EmulatorTest {
 
     @Override
     protected LibraryResolver createLibraryResolver() {
-        return new AndroidResolver(new File("../android"), 19, "libc.so", "libdl.so");
+        return new AndroidResolver(new File("android"), 19, "libc.so", "libdl.so");
     }
 
     public void testExample() throws Exception {
         emulator.getMemory().setCallInitFunction();
-        Module module = emulator.loadLibrary(new File("../example_binaries/libnative-lib.so"));
+        Module module = emulator.loadLibrary(new File("example_binaries/libnative-lib.so"));
 
         emulator.traceCode();
         Number[] numbers = module.callFunction(emulator, 0x7e0 + 1);
@@ -34,12 +36,15 @@ public class AndroidNativeEmuTest extends EmulatorTest {
     }
 
     public void testCallTest() throws Exception {
-        emulator.setProcessName(getClass().getSimpleName());
         emulator.getMemory().setCallInitFunction();
-        Module module = emulator.loadLibrary(new File("../example_binaries/libnative-lib.so"));
+        Module module = emulator.loadLibrary(new File("example_binaries/libnative-lib.so"));
 
         Number[] numbers = module.callFunction(emulator, "_Z4testv");
         System.out.println("String length is: " + numbers[0].intValue());
     }
 
+    @Override
+    protected Emulator createARMEmulator() {
+        return new AndroidARMEmulator(getClass().getSimpleName());
+    }
 }

@@ -8,8 +8,6 @@ import unicorn.Unicorn;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.Locale;
 
 /**
@@ -197,22 +195,12 @@ public class ARM {
 
     private static final int ALIGN_SIZE_BASE = 4;
 
-    private static int alignSize(int size) {
+    public static int alignSize(int size) {
         return ((size - 1) / ALIGN_SIZE_BASE + 1) * ALIGN_SIZE_BASE;
     }
 
     public static long alignSize(long size, long align) {
         return ((size - 1) / align + 1) * align;
-    }
-
-    public static int writeCString(Unicorn unicorn, final long addr, String str) {
-        byte[] data = str.getBytes(StandardCharsets.UTF_8);
-        return writeBytes(unicorn, addr, Arrays.copyOf(data, data.length + 1));
-    }
-    static int writeBytes(Unicorn unicorn, final long addr, byte[] data) {
-        int alignSize = ARM.alignSize(data.length);
-        unicorn.mem_write(addr - alignSize, Arrays.copyOf(data, data.length));
-        return alignSize;
     }
 
     public static String readCString(Unicorn unicorn, long address) {

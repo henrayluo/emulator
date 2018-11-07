@@ -1,5 +1,6 @@
 package cn.banny.emulator;
 
+import cn.banny.emulator.arm.AndroidARMEmulator;
 import junit.framework.TestCase;
 
 public abstract class EmulatorTest extends TestCase {
@@ -13,8 +14,12 @@ public abstract class EmulatorTest extends TestCase {
         super.setUp();
 
         start = System.currentTimeMillis();
-        emulator = EmulatorFactory.createARMEmulator();
+        emulator = createARMEmulator();
         emulator.getMemory().setLibraryResolver(createLibraryResolver());
+    }
+
+    protected Emulator createARMEmulator() {
+        return new AndroidARMEmulator();
     }
 
     protected abstract LibraryResolver createLibraryResolver();
