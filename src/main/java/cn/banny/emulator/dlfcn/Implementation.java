@@ -19,69 +19,6 @@ public class Implementation implements Dlfcn {
     private final long dladdr;
     private final long dlsym;
 
-    @Override
-    public long hook(String soName, String symbol) {
-        if ("libdl.so".equals(soName)) {
-            switch (symbol) {
-                case "dlerror":
-                    return dlerror;
-                case "dlclose":
-                    return dlclose;
-                case "dlopen":
-                    return dlopen;
-                case "dladdr":
-                    return dladdr;
-                case "dlsym":
-                    return dlsym;
-            }
-        }
-        return 0;
-    }
-
-    @Override
-    public int dlopen(Memory memory, String filename, int flags) {
-        try {
-            Module module = memory.loadLibrary(filename);
-            if (module == null) {
-                this.error.setString(0, "Find " + filename + " failed");
-                return 0;
-            }
-            return (int) module.base;
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    @Override
-    public int dlsym(Memory memory, long handle, String symbol) {
-        try {
-            Module module = memory.findModuleByHandle(handle);
-            ElfSymbol elfSymbol = module == null ? null : module.getELFSymbolByName(symbol);
-            if (elfSymbol == null) {
-                this.error.setString(0, "Find symbol " + symbol + " failed");
-                return 0;
-            }
-            return (int) (module.base + elfSymbol.value);
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        }
-    }
-
-    @Override
-    public int dlclose(Memory memory, long handle) {
-        if (memory.unloadLibrary(handle)) {
-            return 0;
-        } else {
-            this.error.setString(0, "dlclose 0x" + Long.toHexString(handle) + " failed");
-            return -1;
-        }
-    }
-
-    @Override
-    public int dlerror() {
-        return (int) error.peer;
-    }
-
     public Implementation(Unicorn unicorn) {
         long base = 0xfffe0000L;
         unicorn.mem_map(base, 0x10000, UnicornConst.UC_PROT_READ | UnicornConst.UC_PROT_EXEC);
@@ -150,6 +87,69 @@ public class Implementation implements Dlfcn {
         };
         this.dlsym = base;
         unicorn.mem_write(this.dlsym, dlsym);
+    }
+
+    @Override
+    public long hook(String soName, String symbol) {
+        if ("libdl.so".equals(soName)) {
+            switch (symbol) {
+                case "dlerror":
+                    return dlerror;
+                case "dlclose":
+                    return dlclose;
+                case "dlopen":
+                    return dlopen;
+                case "dladdr":
+                    return dladdr;
+                case "dlsym":
+                    return dlsym;
+            }
+        }
+        return 0;
+    }
+
+    @Override
+    public int dlopen(Memory memory, String filename, int flags) {
+        try {
+            Module module = memory.loadLibrary(filename);
+            if (module == null) {
+                this.error.setString(0, "Find " + filename + " failed");
+                return 0;
+            }
+            return (int) module.base;
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    public int dlsym(Memory memory, long handle, String symbol) {
+        try {
+            Module module = memory.findModuleByHandle(handle);
+            ElfSymbol elfSymbol = module == null ? null : module.getELFSymbolByName(symbol);
+            if (elfSymbol == null) {
+                this.error.setString(0, "Find symbol " + symbol + " failed");
+                return 0;
+            }
+            return (int) (module.base + elfSymbol.value);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    public int dlclose(Memory memory, long handle) {
+        if (memory.unloadLibrary(handle)) {
+            return 0;
+        } else {
+            this.error.setString(0, "dlclose 0x" + Long.toHexString(handle) + " failed");
+            return -1;
+        }
+    }
+
+    @Override
+    public int dlerror() {
+        return (int) error.peer;
     }
 
 }

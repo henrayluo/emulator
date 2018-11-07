@@ -45,7 +45,9 @@ public class AndroidARMEmulator extends AbstractEmulator implements ARMEmulator 
      */
     private void setupTraps() {
         unicorn.mem_map(0xffff0000L, 0x10000, UnicornConst.UC_PROT_READ | UnicornConst.UC_PROT_EXEC);
-        byte[] b0 = new byte[] { 0x00, (byte) 0xf0, (byte) 0xa0, (byte) 0xe3 };
+        byte[] b0 = new byte[] {
+                (byte) 0x00, (byte) 0xf0, (byte) 0xa0, (byte) 0xe3, // mov pc, #0
+        };
         ByteBuffer buffer = ByteBuffer.allocate(0x10000);
         // write "mov pc, #0" to all kernel trap addresses so they will throw exception
         for (int i = 0; i < 0x10000; i += 4) {
@@ -53,24 +55,31 @@ public class AndroidARMEmulator extends AbstractEmulator implements ARMEmulator 
         }
         unicorn.mem_write(0xffff0000L, buffer.array());
 
-        try {
-            byte[] __kuser_memory_barrier = new byte[] { 0x1e, (byte) 0xff, 0x2f, (byte) 0xe1 }; // bx lr
-            byte[] __kuser_cmpxchg = Hex.decodeHex("5ff07ff59f3f92e1003053e0913f820101003303faffff0a000073e2efffffea".toCharArray());
-            unicorn.mem_write(LR, __kuser_memory_barrier);
-            unicorn.mem_write(0xffff0fc0L, __kuser_cmpxchg);
+        byte[] __kuser_memory_barrier = new byte[] {
+                (byte) 0x1e, (byte) 0xff, (byte) 0x2f, (byte) 0xe1, // bx lr
+        };
+        byte[] __kuser_cmpxchg = new byte[] {
+                (byte) 0x5f, (byte) 0xf0, (byte) 0x7f, (byte) 0xf5, // dmb sy
+                (byte) 0x9f, (byte) 0x3f, (byte) 0x92, (byte) 0xe1, // ldrex r3, [r2]
+                (byte) 0x00, (byte) 0x30, (byte) 0x53, (byte) 0xe0, // subs r3, r3, r0
+                (byte) 0x91, (byte) 0x3f, (byte) 0x82, (byte) 0x01, // strexeq r3, r1, [r2]
+                (byte) 0x01, (byte) 0x00, (byte) 0x33, (byte) 0x03, // teqeq r3, #1,
+                (byte) 0xfa, (byte) 0xff, (byte) 0xff, (byte) 0x0a, // beq #0xffff0fc4
+                (byte) 0x00, (byte) 0x00, (byte) 0x73, (byte) 0xe2, // rsbs r0, r3, #0
+                (byte) 0xef, (byte) 0xff, (byte) 0xff, (byte) 0xea, // b #0xffff0fa0
+        };
+        unicorn.mem_write(LR, __kuser_memory_barrier);
+        unicorn.mem_write(0xffff0fc0L, __kuser_cmpxchg);
 
-            if (log.isDebugEnabled()) {
-                log.debug("__kuser_memory_barrier");
-                for (int i = 0; i < __kuser_memory_barrier.length; i += 4) {
-                    printAssemble(LR + i, 4);
-                }
-                log.debug("__kuser_cmpxchg");
-                for (int i = 0; i < __kuser_cmpxchg.length; i += 4) {
-                    printAssemble(0xffff0fc0L + i, 4);
-                }
+        if (log.isDebugEnabled()) {
+            log.debug("__kuser_memory_barrier");
+            for (int i = 0; i < __kuser_memory_barrier.length; i += 4) {
+                printAssemble(LR + i, 4);
             }
-        } catch (Hex.DecoderException e) {
-            throw new IllegalStateException(e);
+            log.debug("__kuser_cmpxchg");
+            for (int i = 0; i < __kuser_cmpxchg.length; i += 4) {
+                printAssemble(0xffff0fc0L + i, 4);
+            }
         }
     }
 
