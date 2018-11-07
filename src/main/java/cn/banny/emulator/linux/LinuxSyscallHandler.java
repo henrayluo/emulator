@@ -104,11 +104,17 @@ public class LinuxSyscallHandler extends SyscallHandler {
                     case 93:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, ftruncate(u));
                         return;
+                    case 94:
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, fchmod(u));
+                        return;
                     case 103:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, syslog(u));
                         return;
                     case 104:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, setitimer(u));
+                        return;
+                    case 120:
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, clone(u));
                         return;
                     case 122:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, uname(u));
@@ -125,8 +131,14 @@ public class LinuxSyscallHandler extends SyscallHandler {
                     case 136:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, personality(u));
                         return;
+                    case 140:
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, llseek(u, emulator));
+                        return;
                     case 142:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, newselect(u, emulator));
+                        return;
+                    case 143:
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, flock(u));
                         return;
                     case 146:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, writev(u, emulator));
@@ -144,7 +156,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
                         u.reg_write(ArmConst.UC_ARM_REG_R0, getcwd(u));
                         return;
                     case 192:
-                        u.reg_write(ArmConst.UC_ARM_REG_R0, mmap(u, emulator));
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, mmap2(u, emulator));
                         return;
                     case 195:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, stat64(u, emulator));
@@ -268,6 +280,54 @@ public class LinuxSyscallHandler extends SyscallHandler {
         }
     }
 
+    private int clone(Unicorn u) {
+        Pointer fn = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R0);
+        Pointer child_stack = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
+        int flags = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R2)).intValue();
+        Pointer arg = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R3);
+        if (log.isDebugEnabled()) {
+            log.debug("clone fn=" + fn + ", child_stack=" + child_stack + ", flags=" + flags + ", arg=" + arg);
+        }
+        throw new AbstractMethodError();
+    }
+
+    private int flock(Unicorn u) {
+        int fd = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue();
+        int operation = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R1)).intValue();
+        if (log.isDebugEnabled()) {
+            log.debug("flock fd=" + fd + ", operation=" + operation);
+        }
+        return 0;
+    }
+
+    private int fchmod(Unicorn u) {
+        int fd = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue();
+        int mode = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R1)).intValue();
+        if (log.isDebugEnabled()) {
+            log.debug("fchmod fd=" + fd + ", mode=" + mode);
+        }
+        return 0;
+    }
+
+    private int llseek(Unicorn u, Emulator emulator) {
+        int fd = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue();
+        long offset_high = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R1)).intValue() & 0xffffffffL;
+        long offset_low = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R2)).intValue() & 0xffffffffL;
+        Pointer result = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R3);
+        int whence = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R4)).intValue();
+        if (log.isDebugEnabled()) {
+            log.debug("llseek fd=" + fd + ", offset_high=" + offset_high + ", offset_low=" + offset_low + ", result=" + result + ", whence=" + whence);
+        }
+
+        FileIO io = fdMap.get(fd);
+        if (io == null) {
+            emulator.setErrno(Emulator.EBADF);
+            return -1;
+        } else {
+            return io.llseek(offset_high, offset_low, result, whence);
+        }
+    }
+
     private int access(Unicorn u, Emulator emulator) {
         Pointer pathname = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R0);
         int mode = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R1)).intValue();
@@ -358,8 +418,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
         if (log.isDebugEnabled()) {
             log.debug("stat64 pathname=" + pathname.getString(0) + ", statbuf=" + statbuf);
         }
-        emulator.setErrno(Emulator.EACCES);
-        return -1;
+        return emulator.getMemory().stat64(pathname.getString(0), statbuf);
     }
 
     private int newselect(Unicorn u, Emulator emulator) {
@@ -983,17 +1042,19 @@ public class LinuxSyscallHandler extends SyscallHandler {
         return emulator.getMemory().mprotect(address, (int) aligned, prot);
     }
 
-    private int mmap(Unicorn u, Emulator emulator) {
+    private static final int MMAP2_SHIFT = 12;
+
+    private int mmap2(Unicorn u, Emulator emulator) {
         long start = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue() & 0xffffffffL;
         int length = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R1)).intValue();
         int prot = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R2)).intValue();
         int flags = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R3)).intValue();
         int fd = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R4)).intValue();
-        int offset = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R5)).intValue();
+        int offset = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R5)).intValue() << MMAP2_SHIFT;
         if (log.isDebugEnabled()) {
-            log.debug("mmap start=0x" + Long.toHexString(start) + ", length=" + length + ", prot=0x" + Integer.toHexString(prot) + ", flags=0x" + Integer.toHexString(flags) + ", fd=" + fd + ", offset=" + offset);
+            log.debug("mmap2 start=0x" + Long.toHexString(start) + ", length=" + length + ", prot=0x" + Integer.toHexString(prot) + ", flags=0x" + Integer.toHexString(flags) + ", fd=" + fd + ", offset=" + offset);
         }
-        return emulator.getMemory().mmap(start, length, prot, flags, fd, offset);
+        return emulator.getMemory().mmap2(start, length, prot, flags, fd, offset);
     }
 
     private int gettimeofday(Unicorn u) {

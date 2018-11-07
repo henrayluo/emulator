@@ -102,8 +102,14 @@ public class MapsFileIO extends AbstractFileIO implements FileIO {
     }
 
     @Override
-    byte[] getMmapData() {
-        return maps;
+    byte[] getMmapData(int offset, int length) {
+        if (offset == 0 && length == maps.length) {
+            return maps;
+        } else {
+            byte[] data = new byte[length];
+            System.arraycopy(maps, offset, data, 0, data.length);
+            return data;
+        }
     }
 
     @Override

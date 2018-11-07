@@ -52,9 +52,6 @@ public class Stdout extends SimpleFileIO {
         }
     }
 
-    private static final int SEEK_SET = 0;
-    private static final int SEEK_CUR = 1;
-
     @Override
     public int lseek(int offset, int whence) {
         try {

@@ -6,6 +6,7 @@ import cn.banny.emulator.dlfcn.Implementation;
 import cn.banny.emulator.linux.LinuxSyscallHandler;
 import cn.banny.emulator.linux.Module;
 import cn.banny.emulator.linux.VirtualMemory;
+import cn.banny.emulator.linux.file.FileIO;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -34,6 +35,8 @@ public abstract class AbstractEmulator implements Emulator {
 
     protected long timeout = DEFAULT_TIMEOUT;
 
+    private final SyscallHandler syscallHandler;
+
     public AbstractEmulator(int unicorn_arch, int unicorn_mode) {
         super();
         this.unicorn = new Unicorn(unicorn_arch, unicorn_mode);
@@ -46,7 +49,7 @@ public abstract class AbstractEmulator implements Emulator {
             }
         }, UnicornConst.UC_HOOK_MEM_READ_UNMAPPED | UnicornConst.UC_HOOK_MEM_WRITE_UNMAPPED | UnicornConst.UC_HOOK_MEM_FETCH_UNMAPPED, null);
 
-        SyscallHandler syscallHandler = new LinuxSyscallHandler(new Implementation(unicorn));
+        this.syscallHandler = new LinuxSyscallHandler(new Implementation(unicorn));
         this.memory = new VirtualMemory(unicorn, this, syscallHandler);
 
         unicorn.hook_add(syscallHandler, this);
@@ -174,9 +177,13 @@ public abstract class AbstractEmulator implements Emulator {
         }
 
         try {
-            unicorn.close();
+            for (FileIO io : syscallHandler.fdMap.values()) {
+                io.close();
+            }
 
             closeInternal();
+
+            unicorn.close();
         } finally {
             closed = true;
         }

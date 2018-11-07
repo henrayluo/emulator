@@ -1,11 +1,13 @@
 package cn.banny.emulator.linux.file;
 
+import cn.banny.auxiliary.Inspector;
 import cn.banny.emulator.Emulator;
 import cn.banny.emulator.arm.ARM;
 import cn.banny.emulator.linux.IO;
 import com.sun.jna.Pointer;
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import unicorn.Unicorn;
 
 import java.io.*;
@@ -13,19 +15,27 @@ import java.util.Arrays;
 
 public class SimpleFileIO extends AbstractFileIO implements FileIO {
 
+    private static final Log log = LogFactory.getLog(SimpleFileIO.class);
+
     final File file;
     final String path;
+    private final RandomAccessFile randomAccessFile;
 
     public SimpleFileIO(int oflags, File file, String path) {
         super(oflags);
         this.file = file;
         this.path = path;
+
+        try {
+            randomAccessFile = new RandomAccessFile(file, "rws");
+        } catch (FileNotFoundException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     @Override
     public void close() {
-        IOUtils.closeQuietly(outputStream);
-        IOUtils.closeQuietly(inputStream);
+        IOUtils.closeQuietly(randomAccessFile);
 
         if (debugStream != null) {
             try {
@@ -40,12 +50,13 @@ public class SimpleFileIO extends AbstractFileIO implements FileIO {
     @Override
     public int write(byte[] data) {
         try {
-            if (outputStream == null) {
-                outputStream = new FileOutputStream(file);
-            }
-
             if (debugStream != null) {
                 debugStream.write(data);
+                debugStream.flush();
+            }
+
+            if (outputStream == null) {
+                outputStream = createFileOutputStream(file);
             }
 
             outputStream.write(data);
@@ -56,33 +67,36 @@ public class SimpleFileIO extends AbstractFileIO implements FileIO {
         }
     }
 
+    OutputStream createFileOutputStream(File file) throws FileNotFoundException {
+        return new FileOutputStream(file);
+    }
+
     OutputStream debugStream;
 
     void setDebugStream(OutputStream stream) {
         this.debugStream = new BufferedOutputStream(stream);
     }
 
-    private InputStream inputStream;
-
     @Override
     public int read(Unicorn unicorn, Pointer buffer, int count) {
         try {
-            if (inputStream == null) {
-                inputStream = new FileInputStream(file);
-            }
-
             byte[] data = new byte[count];
-            int read = inputStream.read(data);
+            int read = randomAccessFile.read(data);
             if (read <= 0) {
                 return read;
             }
 
+            final byte[] buf;
             if (read == count) {
-                buffer.write(0, data, 0, data.length);
+                buf = data;
             } else {
-                buffer.write(0, Arrays.copyOf(data, read), 0, read);
+                buf = Arrays.copyOf(data, read);
             }
-            return read;
+            if (log.isDebugEnabled() && buf.length < 10240) {
+                Inspector.inspect(buf, "read " + file);
+            }
+            buffer.write(0, buf, 0, buf.length);
+            return buf.length;
         } catch (IOException e) {
             throw new IllegalStateException();
         }
@@ -109,8 +123,28 @@ public class SimpleFileIO extends AbstractFileIO implements FileIO {
     }
 
     @Override
-    byte[] getMmapData() throws IOException {
-        return FileUtils.readFileToByteArray(this.file);
+    byte[] getMmapData(int offset, int length) throws IOException {
+        randomAccessFile.seek(offset);
+        ByteArrayOutputStream baos = new ByteArrayOutputStream(length);
+        byte[] buf = new byte[10240];
+        do {
+            int count = length - baos.size();
+            if (count == 0) {
+                break;
+            }
+
+            if (count > buf.length) {
+                count = buf.length;
+            }
+
+            int read = randomAccessFile.read(buf, 0, count);
+            if (read == -1) {
+                break;
+            }
+
+            baos.write(buf, 0, read);
+        } while (true);
+        return baos.toByteArray();
     }
 
     @Override
@@ -129,10 +163,52 @@ public class SimpleFileIO extends AbstractFileIO implements FileIO {
 
     @Override
     public FileIO dup2() {
-        SimpleFileIO dup = new SimpleFileIO(0, file, path);
+        SimpleFileIO dup = new SimpleFileIO(oflags, file, path);
         dup.debugStream = debugStream;
         dup.op = op;
         dup.oflags = oflags;
         return dup;
+    }
+
+    @Override
+    public int lseek(int offset, int whence) {
+        try {
+            switch (whence) {
+                case SEEK_SET:
+                    randomAccessFile.seek(offset);
+                    return (int) randomAccessFile.getFilePointer();
+                case SEEK_CUR:
+                    randomAccessFile.seek(randomAccessFile.getFilePointer() + offset);
+                    return (int) randomAccessFile.getFilePointer();
+                case SEEK_END:
+                    randomAccessFile.seek(randomAccessFile.length() - offset);
+                    return (int) randomAccessFile.getFilePointer();
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+
+        return super.lseek(offset, whence);
+    }
+
+    @Override
+    public int llseek(long offset_high, long offset_low, Pointer result, int whence) {
+        try {
+            long offset = (offset_high<<32) | offset_low;
+            switch (whence) {
+                case SEEK_SET:
+                    randomAccessFile.seek(offset);
+                    result.setLong(0, randomAccessFile.getFilePointer());
+                    return 0;
+                case SEEK_END:
+                    randomAccessFile.seek(randomAccessFile.length() - offset);
+                    result.setLong(0, randomAccessFile.getFilePointer());
+                    return 0;
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+
+        return super.llseek(offset_high, offset_low, result, whence);
     }
 }

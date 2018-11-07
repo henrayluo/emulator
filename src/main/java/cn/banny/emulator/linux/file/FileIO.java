@@ -15,6 +15,10 @@ public interface FileIO {
     int O_APPEND = 0x400;
     int O_NONBLOCK = 0x800;
 
+    int SEEK_SET = 0;
+    int SEEK_CUR = 1;
+    int SEEK_END = 2;
+
     void close();
 
     int write(byte[] data);
@@ -47,5 +51,7 @@ public interface FileIO {
 
     int getsockname(Pointer addr, Pointer addrlen);
 
-    int mmap(Unicorn unicorn, long addr, int length, int prot, Map<Long, Integer> memoryMap) throws IOException;
+    int mmap2(Unicorn unicorn, long addr, int aligned, int prot, int offset, int length, Map<Long, Integer> memoryMap) throws IOException;
+
+    int llseek(long offset_high, long offset_low, Pointer result, int whence);
 }

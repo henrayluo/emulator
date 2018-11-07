@@ -2,6 +2,7 @@ package cn.banny.emulator.linux;
 
 import cn.banny.auxiliary.Inspector;
 import cn.banny.emulator.*;
+import cn.banny.emulator.arm.ARM;
 import cn.banny.emulator.arm.ARMEmulator;
 import cn.banny.emulator.linux.file.*;
 import cn.banny.emulator.pointer.UnicornPointer;
@@ -398,6 +399,17 @@ public class VirtualMemory implements Memory {
         return alignment;
     }
 
+    @Override
+    public int stat64(String pathname, Pointer statbuf) {
+        File file = libraryResolver == null ? null : libraryResolver.resolveFile(pathname);
+        if (file != null) {
+            return new SimpleFileIO(FileIO.O_RDWR, file, pathname).fstat(emulator, unicorn, statbuf);
+        } else {
+            emulator.setErrno(Emulator.EACCES);
+            return -1;
+        }
+    }
+
     private int get_segment_protection(int flags) {
         int prot = Unicorn.UC_PROT_NONE;
         if ((flags & /* PF_R= */4) != 0) prot |= Unicorn.UC_PROT_READ;
@@ -454,36 +466,35 @@ public class VirtualMemory implements Memory {
     }
 
     @Override
-    public int mmap(long start, int length, int prot, int flags, int fd, int offset) {
-        if (length % emulator.getPageAlign() != 0) {
-            return -1;
-        }
+    public int mmap2(long start, int length, int prot, int flags, int fd, int offset) {
+        int aligned = (int) ARM.alignSize(length, emulator.getPageAlign());
 
         if (start == 0 && fd == -1 && offset == 0) {
-            long addr = allocateMapAddress(length);
-            log.debug("mmap addr=0x" + Long.toHexString(addr) + ", mmapBaseAddress=0x" + Long.toHexString(mmapBaseAddress));
-            unicorn.mem_map(addr, length, prot);
-            memoryMap.put(addr, length);
+            long addr = allocateMapAddress(aligned);
+            log.debug("mmap2 addr=0x" + Long.toHexString(addr) + ", mmapBaseAddress=0x" + Long.toHexString(mmapBaseAddress));
+            unicorn.mem_map(addr, aligned, prot);
+            memoryMap.put(addr, aligned);
             return (int) addr;
         }
         try {
             FileIO file;
-            if (start == 0 && fd > 0 && offset == 0 && (file = syscallHandler.fdMap.get(fd)) != null) {
-                long addr = allocateMapAddress(length);
-                log.debug("mmap addr=0x" + Long.toHexString(addr) + ", mmapBaseAddress=0x" + Long.toHexString(mmapBaseAddress));
-                return file.mmap(unicorn, addr, length, prot, memoryMap);
+            if (start == 0 && fd > 0 && (file = syscallHandler.fdMap.get(fd)) != null) {
+                long addr = allocateMapAddress(aligned);
+                log.debug("mmap2 addr=0x" + Long.toHexString(addr) + ", mmapBaseAddress=0x" + Long.toHexString(mmapBaseAddress));
+                return file.mmap2(unicorn, addr, aligned, prot, offset, length, memoryMap);
             }
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
 
-        throw new UnsupportedOperationException();
+        throw new AbstractMethodError();
     }
 
     @Override
     public int munmap(long start, int length) {
-        unicorn.mem_unmap(start, length);
-        if(memoryMap.remove(start) != length) {
+        int aligned = (int) ARM.alignSize(length, emulator.getPageAlign());
+        unicorn.mem_unmap(start, aligned);
+        if(memoryMap.remove(start) != aligned) {
             throw new IllegalStateException("munmap failed");
         }
         return 0;

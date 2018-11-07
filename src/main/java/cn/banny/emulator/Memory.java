@@ -3,6 +3,7 @@ package cn.banny.emulator;
 import cn.banny.emulator.linux.IO;
 import cn.banny.emulator.linux.Module;
 import cn.banny.emulator.linux.ModuleListener;
+import com.sun.jna.Pointer;
 
 import java.io.File;
 import java.io.IOException;
@@ -32,7 +33,7 @@ public interface Memory extends IO {
     boolean unloadLibrary(long handle);
     Module findModuleByHandle(long handle);
 
-    int mmap(long start, int length, int prot, int flags, int fd, int offset);
+    int mmap2(long start, int length, int prot, int flags, int fd, int offset);
     int mprotect(long address, int length, int prot);
     int brk(long address);
 
@@ -44,4 +45,6 @@ public interface Memory extends IO {
     int munmap(long start, int length);
 
     void setModuleListener(ModuleListener listener);
+
+    int stat64(String pathname, Pointer statbuf);
 }

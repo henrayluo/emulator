@@ -3,9 +3,7 @@ package cn.banny.emulator.linux.file;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 
 public class LogCatFileIO extends SimpleFileIO {
 
@@ -107,12 +105,17 @@ public class LogCatFileIO extends SimpleFileIO {
                         c = level + "";
                         break;
                 }
-                super.write(String.format("%s/%s: %s", c, tag, text).getBytes());
+                super.write(String.format("%s/%s: %s\n", c, tag, text).getBytes());
             }
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
         return data.length;
+    }
+
+    @Override
+    OutputStream createFileOutputStream(File file) throws FileNotFoundException {
+        return new FileOutputStream(file, true);
     }
 
     @Override

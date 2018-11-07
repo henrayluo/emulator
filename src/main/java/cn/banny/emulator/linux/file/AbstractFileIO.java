@@ -4,7 +4,6 @@ import com.sun.jna.Pointer;
 import unicorn.Unicorn;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Map;
 
 public abstract class AbstractFileIO implements FileIO {
@@ -83,7 +82,7 @@ public abstract class AbstractFileIO implements FileIO {
 
     @Override
     public int lseek(int offset, int whence) {
-        throw new UnsupportedOperationException();
+        throw new AbstractMethodError();
     }
 
     @Override
@@ -102,20 +101,20 @@ public abstract class AbstractFileIO implements FileIO {
     }
 
     @Override
-    public final int mmap(Unicorn unicorn, long addr, int length, int prot, Map<Long, Integer> memoryMap) throws IOException {
-        byte[] data = getMmapData();
-        unicorn.mem_map(addr, length, prot);
-        memoryMap.put(addr, length);
-        if (data.length <= length) {
-            unicorn.mem_write(addr, data);
-        } else {
-            unicorn.mem_write(addr, Arrays.copyOf(data, length));
-        }
+    public final int mmap2(Unicorn unicorn, long addr, int aligned, int prot, int offset, int length, Map<Long, Integer> memoryMap) throws IOException {
+        byte[] data = getMmapData(offset, length);
+        unicorn.mem_map(addr, aligned, prot);
+        memoryMap.put(addr, aligned);
+        unicorn.mem_write(addr, data);
         return (int) addr;
     }
 
-    byte[] getMmapData() throws IOException {
+    byte[] getMmapData(int offset, int length) throws IOException {
         throw new AbstractMethodError();
     }
 
+    @Override
+    public int llseek(long offset_high, long offset_low, Pointer result, int whence) {
+        throw new AbstractMethodError();
+    }
 }

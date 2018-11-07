@@ -1,6 +1,7 @@
 package cn.banny.emulator.linux;
 
 import cn.banny.emulator.LibraryResolver;
+import org.apache.commons.io.FilenameUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -59,6 +60,24 @@ public class AndroidResolver implements LibraryResolver {
                 return log;
             } catch (IOException e) {
                 throw new IllegalStateException(e);
+            }
+        }
+        if (path.startsWith("/system/framework/")) {
+            File file = new File(androidDir, "framework/" + FilenameUtils.getName(path));
+            if (file.canRead()) {
+                return file;
+            }
+        }
+        if (path.startsWith("/data/dalvik-cache/")) {
+            File file = new File(androidDir, "dalvik-cache/" + FilenameUtils.getName(path));
+            if (file.canRead()) {
+                return file;
+            }
+        }
+        if ("/usr/icu/icudt51l.dat".equals(path)) {
+            File file = new File(androidDir, "icu/" + FilenameUtils.getName(path));
+            if (file.canRead()) {
+                return file;
             }
         }
 
