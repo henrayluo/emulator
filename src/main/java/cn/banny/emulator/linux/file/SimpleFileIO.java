@@ -109,7 +109,7 @@ public class SimpleFileIO extends AbstractFileIO implements FileIO {
     }
 
     @Override
-    public byte[] readFileToByteArray() throws IOException {
+    byte[] getMmapData() throws IOException {
         return FileUtils.readFileToByteArray(this.file);
     }
 
@@ -119,12 +119,12 @@ public class SimpleFileIO extends AbstractFileIO implements FileIO {
     }
 
     @Override
-    public int ioctl(long request, Pointer argp) {
+    public int ioctl(Unicorn unicorn, long request, long argp) {
         if (IO.STDOUT.equals(path) || IO.STDERR.equals(path)) {
             return 0;
         }
 
-        return super.ioctl(request, argp);
+        return super.ioctl(unicorn, request, argp);
     }
 
     @Override

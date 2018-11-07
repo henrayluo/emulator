@@ -20,6 +20,7 @@ public interface Emulator extends Closeable, Disassembler {
     int EBADF = 9;
     int ENOMEM = 12;
     int EACCES = 13;
+    int EINVAL = 22;
     int ECONNREFUSED = 111;
 
     int getPageAlign();

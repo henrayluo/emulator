@@ -93,9 +93,10 @@ public class SimpleDebugger implements Debugger {
         System.out.println("debugger break at: 0x" + Long.toHexString(address));
         singleStep = false;
         boolean thumb = ARM.isThumb(u);
+        long nextAddress = 0;
         try {
             emulator.showRegs();
-            disassemble(emulator, address, size, thumb);
+            nextAddress = disassemble(emulator, address, size, thumb);
         } catch (UnicornException e) {
             e.printStackTrace();
         }
@@ -163,12 +164,28 @@ public class SimpleDebugger implements Debugger {
                         continue;
                     }
                 }
-                if ("c".equals(line)) { // continue
-                    break;
+                if (line.startsWith("b0x")) {
+                    long addr = Long.parseLong(line.substring(3), 16) & 0xFFFFFFFFFFFFFFFEL;
+                    breakMap.put(addr, null); // temp breakpoint
+                    System.out.println("Add temporarily breakpoint: 0x" + Long.toHexString(addr));
+                    continue;
                 }
                 if ("blr".equals(line)) { // break LR
                     breakMap.put(((Number) u.reg_read(ArmConst.UC_ARM_REG_LR)).intValue() & 0xffffffffL, null);
                     continue;
+                }
+                if ("c".equals(line)) { // continue
+                    break;
+                }
+                if ("n".equals(line)) {
+                    if (nextAddress == 0) {
+                        System.out.println("Next address failed.");
+                        continue;
+                    } else {
+                        // System.out.println("Add temporarily breakpoint: 0x" + Long.toHexString(nextAddress));
+                        breakMap.put(nextAddress, null);
+                        break;
+                    }
                 }
                 if ("s".equals(line) || "si".equals(line)) {
                     singleStep = true;
@@ -184,13 +201,23 @@ public class SimpleDebugger implements Debugger {
         }
     }
 
-    private void disassemble(Emulator emulator, long address, int size, boolean thumb) {
+    /**
+     * @return next address
+     */
+    private long disassemble(Emulator emulator, long address, int size, boolean thumb) {
+        long next = 0;
+        boolean on = false;
         StringBuilder sb = new StringBuilder();
         for (CodeHistory history : historyList) {
             if (history.address == address) {
                 sb.append("=>  ");
+                on = true;
             } else {
                 sb.append("    ");
+                if (on) {
+                    next = history.address;
+                    on = false;
+                }
             }
             sb.append(history.asm).append('\n');
         }
@@ -199,13 +226,19 @@ public class SimpleDebugger implements Debugger {
         for (Capstone.CsInsn ins : insns) {
             if (nextAddr == address) {
                 sb.append("=>  ");
+                on = true;
             } else {
                 sb.append("    ");
+                if (on) {
+                    next = nextAddr;
+                    on = false;
+                }
             }
             sb.append(ARM.assembleDetail(emulator.getMemory(), ins, nextAddr, thumb)).append('\n');
             nextAddr += ins.size;
         }
         System.out.println(sb);
+        return next;
     }
 
 }

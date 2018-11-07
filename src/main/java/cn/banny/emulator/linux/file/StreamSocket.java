@@ -81,11 +81,6 @@ public class StreamSocket extends SocketIO implements FileIO {
     }
 
     @Override
-    public byte[] readFileToByteArray() {
-        throw new AbstractMethodError();
-    }
-
-    @Override
     public FileIO dup2() {
         throw new AbstractMethodError();
     }

@@ -355,7 +355,7 @@ public class VirtualMemory implements Memory {
         module.setEntryPoint(elfFile.entry_point);
         log.debug("Load library " + soName + " offset=" + (System.currentTimeMillis() - start) + "ms" + ", entry_point=0x" + Long.toHexString(elfFile.entry_point));
         if (moduleListener != null) {
-            moduleListener.onLoaded(module);
+            moduleListener.onLoaded(emulator, module);
         }
         return module;
     }
@@ -394,6 +394,7 @@ public class VirtualMemory implements Memory {
         log.debug("[" + libraryName + "]0x" + Long.toHexString(alignment.address) + " - 0x" + Long.toHexString(alignment.address + alignment.size) + ", size=0x" + Long.toHexString(alignment.size));
 
         unicorn.mem_map(alignment.address, alignment.size, prot);
+        memoryMap.put(alignment.address, (int) alignment.size);
         return alignment;
     }
 
@@ -470,15 +471,7 @@ public class VirtualMemory implements Memory {
             if (start == 0 && fd > 0 && offset == 0 && (file = syscallHandler.fdMap.get(fd)) != null) {
                 long addr = allocateMapAddress(length);
                 log.debug("mmap addr=0x" + Long.toHexString(addr) + ", mmapBaseAddress=0x" + Long.toHexString(mmapBaseAddress));
-                unicorn.mem_map(addr, length, prot);
-                memoryMap.put(addr, length);
-                byte[] data = file.readFileToByteArray();
-                if (data.length <= length) {
-                    unicorn.mem_write(addr, data);
-                } else {
-                    unicorn.mem_write(addr, Arrays.copyOf(data, length));
-                }
-                return (int) addr;
+                return file.mmap(unicorn, addr, length, prot, memoryMap);
             }
         } catch (IOException e) {
             throw new IllegalStateException(e);

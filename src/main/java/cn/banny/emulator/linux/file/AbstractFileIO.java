@@ -1,6 +1,11 @@
 package cn.banny.emulator.linux.file;
 
 import com.sun.jna.Pointer;
+import unicorn.Unicorn;
+
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Map;
 
 public abstract class AbstractFileIO implements FileIO {
 
@@ -47,7 +52,7 @@ public abstract class AbstractFileIO implements FileIO {
     }
 
     @Override
-    public int ioctl(long request, Pointer argp) {
+    public int ioctl(Unicorn unicorn, long request, long argp) {
         throw new AbstractMethodError();
     }
 
@@ -83,7 +88,7 @@ public abstract class AbstractFileIO implements FileIO {
 
     @Override
     public int ftruncate(int length) {
-        throw new UnsupportedOperationException();
+        throw new AbstractMethodError();
     }
 
     @Override
@@ -95,4 +100,22 @@ public abstract class AbstractFileIO implements FileIO {
     public int shutdown(int how) {
         throw new AbstractMethodError();
     }
+
+    @Override
+    public final int mmap(Unicorn unicorn, long addr, int length, int prot, Map<Long, Integer> memoryMap) throws IOException {
+        byte[] data = getMmapData();
+        unicorn.mem_map(addr, length, prot);
+        memoryMap.put(addr, length);
+        if (data.length <= length) {
+            unicorn.mem_write(addr, data);
+        } else {
+            unicorn.mem_write(addr, Arrays.copyOf(data, length));
+        }
+        return (int) addr;
+    }
+
+    byte[] getMmapData() throws IOException {
+        throw new AbstractMethodError();
+    }
+
 }

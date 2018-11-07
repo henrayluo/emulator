@@ -57,17 +57,12 @@ public class NullFileIO extends AbstractFileIO implements FileIO {
     }
 
     @Override
-    public byte[] readFileToByteArray() {
-        throw new AbstractMethodError();
-    }
-
-    @Override
     public FileIO dup2() {
         throw new AbstractMethodError();
     }
 
     @Override
-    public int ioctl(long request, Pointer argp) {
+    public int ioctl(Unicorn unicorn, long request, long argp) {
         return 0;
     }
 

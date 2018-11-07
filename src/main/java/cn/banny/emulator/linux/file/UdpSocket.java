@@ -34,11 +34,6 @@ public class UdpSocket extends SocketIO implements FileIO {
     }
 
     @Override
-    public byte[] readFileToByteArray() {
-        throw new AbstractMethodError();
-    }
-
-    @Override
     public FileIO dup2() {
         return new UdpSocket();
     }

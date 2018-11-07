@@ -25,7 +25,7 @@ public abstract class AbstractEmulator implements Emulator {
 
     private static final Log log = LogFactory.getLog(AbstractEmulator.class);
 
-    private static final long DEFAULT_TIMEOUT = TimeUnit.SECONDS.toMicros(30);
+    private static final long DEFAULT_TIMEOUT = TimeUnit.HOURS.toMicros(1);
 
     protected final Unicorn unicorn;
 

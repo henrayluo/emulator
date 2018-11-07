@@ -13,7 +13,7 @@ import java.io.IOException;
 
 class RunExecutable {
 
-    static void run(File executable, Object...args) throws IOException {
+    static void run(File executable, ModuleListener listener, Object...args) throws IOException {
         final Emulator emulator = EmulatorFactory.createARMEmulator();
         try {
             long start = System.currentTimeMillis();
@@ -22,15 +22,9 @@ class RunExecutable {
 
             emulator.setProcessName(executable.getName());
             memory.setCallInitFunction();
-            memory.setModuleListener(new ModuleListener() {
-                @Override
-                public void onLoaded(Module module) {
-                    /*if ("libc.so".equals(module.name)) {
-                        final Debugger debugger = emulator.attach();
-                        debugger.addBreakPoint(module, 0x00028DA0);
-                    }*/
-                }
-            });
+            if (listener != null) {
+                memory.setModuleListener(listener);
+            }
             Module module = emulator.loadLibrary(executable);
             Module libc = module.getDependencyModule("libc");
             ElfSymbol environ = libc.getELFSymbolByName("environ");

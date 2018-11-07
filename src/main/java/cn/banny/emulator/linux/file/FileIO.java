@@ -5,6 +5,7 @@ import com.sun.jna.Pointer;
 import unicorn.Unicorn;
 
 import java.io.IOException;
+import java.util.Map;
 
 public interface FileIO {
 
@@ -24,9 +25,7 @@ public interface FileIO {
 
     int fcntl(int cmd, int arg);
 
-    byte[] readFileToByteArray() throws IOException;
-
-    int ioctl(long request, Pointer argp);
+    int ioctl(Unicorn unicorn, long request, long argp);
 
     FileIO dup2();
 
@@ -47,4 +46,6 @@ public interface FileIO {
     int getsockopt(int level, int optname, Pointer optval, Pointer optlen);
 
     int getsockname(Pointer addr, Pointer addrlen);
+
+    int mmap(Unicorn unicorn, long addr, int length, int prot, Map<Long, Integer> memoryMap) throws IOException;
 }

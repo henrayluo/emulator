@@ -102,7 +102,7 @@ public class MapsFileIO extends AbstractFileIO implements FileIO {
     }
 
     @Override
-    public byte[] readFileToByteArray() {
+    byte[] getMmapData() {
         return maps;
     }
 

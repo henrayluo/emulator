@@ -13,6 +13,9 @@ public class DriverFileIO extends AbstractFileIO implements FileIO {
         if ("/dev/alarm".equals(pathname) || "/dev/null".equals(pathname)) {
             return new DriverFileIO(oflags, pathname);
         }
+        if ("/dev/ashmem".equals(pathname)) {
+            return new Ashmem(oflags, pathname);
+        }
         return null;
     }
 
@@ -43,17 +46,12 @@ public class DriverFileIO extends AbstractFileIO implements FileIO {
     }
 
     @Override
-    public byte[] readFileToByteArray() {
-        throw new AbstractMethodError();
-    }
-
-    @Override
-    public int ioctl(long request, Pointer argp) {
+    public int ioctl(Unicorn unicorn, long request, long argp) {
         if ("/dev/alarm".equals(path)) {
             return 0;
         }
 
-        return super.ioctl(request, argp);
+        return super.ioctl(unicorn, request, argp);
     }
 
     @Override

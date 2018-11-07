@@ -64,7 +64,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
                         u.reg_write(ArmConst.UC_ARM_REG_R0, emulator.getPid());
                         return;
                     case 33:
-                        u.reg_write(ArmConst.UC_ARM_REG_R0, access(u));
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, access(u, emulator));
                         return;
                     case 36: // sync: causes all pending modifications to filesystem metadata and cached file data to be written to the underlying filesystems.
                         return;
@@ -117,7 +117,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
                         u.reg_write(ArmConst.UC_ARM_REG_R0, mprotect(u, emulator));
                         return;
                     case 126:
-                        u.reg_write(ArmConst.UC_ARM_REG_R0, sigprocmask(u));
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, sigprocmask(u, emulator));
                         return;
                     case 132:
                         syscall = "getpgid";
@@ -268,13 +268,14 @@ public class LinuxSyscallHandler extends SyscallHandler {
         }
     }
 
-    private int access(Unicorn u) {
+    private int access(Unicorn u, Emulator emulator) {
         Pointer pathname = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R0);
         int mode = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R1)).intValue();
         if (log.isDebugEnabled()) {
             log.debug("access pathname=" + pathname.getString(0) + ", mode=" + mode);
         }
-        throw new UnsupportedOperationException();
+        emulator.setErrno(Emulator.EACCES);
+        return -1;
     }
 
     private int execve(Unicorn u, Emulator emulator) {
@@ -507,14 +508,15 @@ public class LinuxSyscallHandler extends SyscallHandler {
         throw new UnsupportedOperationException();
     }
 
-    private int sigprocmask(Unicorn u) {
+    private int sigprocmask(Unicorn u, Emulator emulator) {
         int how = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue();
         Pointer set = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
         Pointer oldset = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R2);
         if (log.isDebugEnabled()) {
             log.debug("sigprocmask how=" + how + ", set=" + set + ", oldset=" + oldset);
         }
-        throw new UnsupportedOperationException();
+        emulator.setErrno(Emulator.EINVAL);
+        return -1;
     }
 
     private int lstat(Unicorn u) {
@@ -1111,9 +1113,9 @@ public class LinuxSyscallHandler extends SyscallHandler {
     private int ioctl(Unicorn u, Emulator emulator) {
         int fd = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue();
         long request = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R1)).intValue() & 0xffffffffL;
-        Pointer argp = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R2);
+        long argp = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R2)).intValue() & 0xffffffffL;
         if (log.isDebugEnabled()) {
-            log.debug("ioctl fd=" + fd + ", request=0x" + Long.toHexString(request) + ", argp=" + argp);
+            log.debug("ioctl fd=" + fd + ", request=0x" + Long.toHexString(request) + ", argp=0x" + Long.toHexString(argp));
         }
 
         FileIO file = fdMap.get(fd);
@@ -1121,7 +1123,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
             emulator.setErrno(Emulator.EBADF);
             return -1;
         }
-        return file.ioctl(request, argp);
+        return file.ioctl(u, request, argp);
     }
 
     private int write(Unicorn u, Emulator emulator) {

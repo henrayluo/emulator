@@ -99,7 +99,7 @@ public class Implementation implements Dlfcn {
 
         byte[] dlerror = new byte[] {
                 (byte) 0x07, (byte) 0xc0, (byte) 0xa0, (byte) 0xe1, // mov r12, r7
-                (byte) 0xf1, (byte) 0x7a, (byte) 0xa0, (byte) 0xe3, // mov	r7, #0xf1000
+                (byte) 0xf1, (byte) 0x7a, (byte) 0xa0, (byte) 0xe3, // mov r7, #0xf1000
                 (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xef, // svc 0
                 (byte) 0x0c, (byte) 0x70, (byte) 0xa0, (byte) 0xe1, // mov r7, r12
                 (byte) 0x1e, (byte) 0xff, (byte) 0x2f, (byte) 0xe1, // bx lr
@@ -110,7 +110,7 @@ public class Implementation implements Dlfcn {
 
         byte[] dlclose = new byte[] {
                 (byte) 0x07, (byte) 0xc0, (byte) 0xa0, (byte) 0xe1, // mov r12, r7
-                (byte) 0xf2, (byte) 0x7a, (byte) 0xa0, (byte) 0xe3, // mov	r7, #0xf2000
+                (byte) 0xf2, (byte) 0x7a, (byte) 0xa0, (byte) 0xe3, // mov r7, #0xf2000
                 (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xef, // svc 0
                 (byte) 0x0c, (byte) 0x70, (byte) 0xa0, (byte) 0xe1, // mov r7, r12
                 (byte) 0x1e, (byte) 0xff, (byte) 0x2f, (byte) 0xe1, // bx lr
@@ -121,7 +121,7 @@ public class Implementation implements Dlfcn {
 
         byte[] dlopen = new byte[] {
                 (byte) 0x07, (byte) 0xc0, (byte) 0xa0, (byte) 0xe1, // mov r12, r7
-                (byte) 0xf3, (byte) 0x7a, (byte) 0xa0, (byte) 0xe3, // mov	r7, #0xf3000
+                (byte) 0xf3, (byte) 0x7a, (byte) 0xa0, (byte) 0xe3, // mov r7, #0xf3000
                 (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xef, // svc 0
                 (byte) 0x0c, (byte) 0x70, (byte) 0xa0, (byte) 0xe1, // mov r7, r12
                 (byte) 0x1e, (byte) 0xff, (byte) 0x2f, (byte) 0xe1, // bx lr
@@ -132,7 +132,7 @@ public class Implementation implements Dlfcn {
 
         byte[] dladdr = new byte[] {
                 (byte) 0x07, (byte) 0xc0, (byte) 0xa0, (byte) 0xe1, // mov r12, r7
-                (byte) 0x3d, (byte) 0x79, (byte) 0xa0, (byte) 0xe3, // mov	r7, #0xf4000
+                (byte) 0x3d, (byte) 0x79, (byte) 0xa0, (byte) 0xe3, // mov r7, #0xf4000
                 (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xef, // svc 0
                 (byte) 0x0c, (byte) 0x70, (byte) 0xa0, (byte) 0xe1, // mov r7, r12
                 (byte) 0x1e, (byte) 0xff, (byte) 0x2f, (byte) 0xe1, // bx lr
@@ -143,7 +143,7 @@ public class Implementation implements Dlfcn {
 
         byte[] dlsym = new byte[] {
                 (byte) 0x07, (byte) 0xc0, (byte) 0xa0, (byte) 0xe1, // mov r12, r7
-                (byte) 0xf5, (byte) 0x7a, (byte) 0xa0, (byte) 0xe3, // mov	r7, #0xf5000
+                (byte) 0xf5, (byte) 0x7a, (byte) 0xa0, (byte) 0xe3, // mov r7, #0xf5000
                 (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xef, // svc 0
                 (byte) 0x0c, (byte) 0x70, (byte) 0xa0, (byte) 0xe1, // mov r7, r12
                 (byte) 0x1e, (byte) 0xff, (byte) 0x2f, (byte) 0xe1, // bx lr
