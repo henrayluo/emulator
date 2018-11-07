@@ -28,6 +28,10 @@ public interface Memory extends IO {
     byte[] unpack(File elfFile) throws IOException;
     Module findModuleByAddress(long address);
 
+    Module loadLibrary(String filename) throws IOException;
+    boolean unloadLibrary(long handle);
+    Module findModuleByHandle(long handle);
+
     int mmap(long start, int length, int prot, int flags, int fd, int offset);
     int mprotect(long address, int length, int prot);
     int brk(long address);

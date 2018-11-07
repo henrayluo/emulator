@@ -1,9 +1,13 @@
 package cn.banny.emulator.dlfcn;
 
+import cn.banny.emulator.Memory;
+import cn.banny.emulator.linux.Module;
 import cn.banny.emulator.pointer.UnicornPointer;
+import net.fornwall.jelf.ElfSymbol;
 import unicorn.Unicorn;
 import unicorn.UnicornConst;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public class Implementation implements Dlfcn {
@@ -35,9 +39,42 @@ public class Implementation implements Dlfcn {
     }
 
     @Override
-    public int dlopen(String filename, int flags) {
-        this.error.setString(0, "Unsupported dlopen");
-        return 0;
+    public int dlopen(Memory memory, String filename, int flags) {
+        try {
+            Module module = memory.loadLibrary(filename);
+            if (module == null) {
+                this.error.setString(0, "Find " + filename + " failed");
+                return 0;
+            }
+            return (int) module.base;
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    public int dlsym(Memory memory, long handle, String symbol) {
+        try {
+            Module module = memory.findModuleByHandle(handle);
+            ElfSymbol elfSymbol = module == null ? null : module.getELFSymbolByName(symbol);
+            if (elfSymbol == null) {
+                this.error.setString(0, "Find symbol " + symbol + " failed");
+                return 0;
+            }
+            return (int) (module.base + elfSymbol.value);
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @Override
+    public int dlclose(Memory memory, long handle) {
+        if (memory.unloadLibrary(handle)) {
+            return 0;
+        } else {
+            this.error.setString(0, "dlclose 0x" + Long.toHexString(handle) + " failed");
+            return -1;
+        }
     }
 
     @Override
@@ -61,8 +98,10 @@ public class Implementation implements Dlfcn {
         base += 0x100;
 
         byte[] dlerror = new byte[] {
+                (byte) 0x07, (byte) 0xc0, (byte) 0xa0, (byte) 0xe1, // mov r12, r7
                 (byte) 0xf1, (byte) 0x7a, (byte) 0xa0, (byte) 0xe3, // mov	r7, #0xf1000
                 (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xef, // svc 0
+                (byte) 0x0c, (byte) 0x70, (byte) 0xa0, (byte) 0xe1, // mov r7, r12
                 (byte) 0x1e, (byte) 0xff, (byte) 0x2f, (byte) 0xe1, // bx lr
         };
         this.dlerror = base;
@@ -70,8 +109,10 @@ public class Implementation implements Dlfcn {
         base += dlerror.length;
 
         byte[] dlclose = new byte[] {
+                (byte) 0x07, (byte) 0xc0, (byte) 0xa0, (byte) 0xe1, // mov r12, r7
                 (byte) 0xf2, (byte) 0x7a, (byte) 0xa0, (byte) 0xe3, // mov	r7, #0xf2000
                 (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xef, // svc 0
+                (byte) 0x0c, (byte) 0x70, (byte) 0xa0, (byte) 0xe1, // mov r7, r12
                 (byte) 0x1e, (byte) 0xff, (byte) 0x2f, (byte) 0xe1, // bx lr
         };
         this.dlclose = base;
@@ -79,8 +120,10 @@ public class Implementation implements Dlfcn {
         base += dlclose.length;
 
         byte[] dlopen = new byte[] {
+                (byte) 0x07, (byte) 0xc0, (byte) 0xa0, (byte) 0xe1, // mov r12, r7
                 (byte) 0xf3, (byte) 0x7a, (byte) 0xa0, (byte) 0xe3, // mov	r7, #0xf3000
                 (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xef, // svc 0
+                (byte) 0x0c, (byte) 0x70, (byte) 0xa0, (byte) 0xe1, // mov r7, r12
                 (byte) 0x1e, (byte) 0xff, (byte) 0x2f, (byte) 0xe1, // bx lr
         };
         this.dlopen = base;
@@ -88,8 +131,10 @@ public class Implementation implements Dlfcn {
         base += dlopen.length;
 
         byte[] dladdr = new byte[] {
+                (byte) 0x07, (byte) 0xc0, (byte) 0xa0, (byte) 0xe1, // mov r12, r7
                 (byte) 0x3d, (byte) 0x79, (byte) 0xa0, (byte) 0xe3, // mov	r7, #0xf4000
                 (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xef, // svc 0
+                (byte) 0x0c, (byte) 0x70, (byte) 0xa0, (byte) 0xe1, // mov r7, r12
                 (byte) 0x1e, (byte) 0xff, (byte) 0x2f, (byte) 0xe1, // bx lr
         };
         this.dladdr = base;
@@ -97,8 +142,10 @@ public class Implementation implements Dlfcn {
         base += dladdr.length;
 
         byte[] dlsym = new byte[] {
-                (byte) 0x3d, (byte) 0x79, (byte) 0xa0, (byte) 0xe3, // mov	r7, #0xf4000
+                (byte) 0x07, (byte) 0xc0, (byte) 0xa0, (byte) 0xe1, // mov r12, r7
+                (byte) 0xf5, (byte) 0x7a, (byte) 0xa0, (byte) 0xe3, // mov	r7, #0xf5000
                 (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xef, // svc 0
+                (byte) 0x0c, (byte) 0x70, (byte) 0xa0, (byte) 0xe1, // mov r7, r12
                 (byte) 0x1e, (byte) 0xff, (byte) 0x2f, (byte) 0xe1, // bx lr
         };
         this.dlsym = base;

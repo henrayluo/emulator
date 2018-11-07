@@ -119,6 +119,38 @@ public class VirtualMemory implements Memory {
         moduleListener = listener;
     }
 
+    @Override
+    public Module loadLibrary(String filename) throws IOException {
+        File file = libraryResolver == null ? null : libraryResolver.resolveLibrary(filename);
+        if (file == null) {
+            return null;
+        }
+        return loadInternal(file.getParentFile(), file, null);
+    }
+
+    @Override
+    public Module findModuleByHandle(long handle) {
+        for (Module module : modules.values()) {
+            if (module.base == handle) {
+                return module;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public boolean unloadLibrary(long handle) {
+        for (Iterator<Map.Entry<String, Module>> iterator = modules.entrySet().iterator(); iterator.hasNext(); ) {
+            Module module = iterator.next().getValue();
+            if (module.base == handle) {
+                module.unload(unicorn);
+                iterator.remove();
+                return true;
+            }
+        }
+        return false;
+    }
+
     private Module loadInternal(File workDir, File file, final WriteHook unpackHook) throws IOException {
         ElfFile elfFile = ElfFile.fromFile(file);
         if (elfFile.objectSize != ElfFile.CLASS_32) {
@@ -170,10 +202,10 @@ public class VirtualMemory implements Memory {
 
                     final long begin = load_base + ph.virtual_address;
                     final long end = begin + ph.mem_size;
-                    this.mem_map(begin, ph.mem_size, prot, file.getName());
+                    Alignment alignment = this.mem_map(begin, ph.mem_size, prot, file.getName());
                     unicorn.mem_write(begin, ph.getPtLoadData());
 
-                    regions.add(new MemRegion(begin, end, prot, file.getAbsolutePath(), ph.virtual_address));
+                    regions.add(new MemRegion(alignment.address, alignment.address + alignment.size, prot, file.getAbsolutePath(), ph.virtual_address));
 
                     if (unpackHook != null && (prot & UnicornConst.UC_PROT_EXEC) != 0) { // unpack executable code
                         unicorn.hook_add(new WriteHook() {
@@ -356,12 +388,13 @@ public class VirtualMemory implements Memory {
         return new ModuleSymbol(soName, load_base, symbol, relocationAddr, null, offset).resolve(neededLibraries, false, syscallHandler.dlfcn);
     }
 
-    private void mem_map(long address, long size, int prot, String libraryName) {
+    private Alignment mem_map(long address, long size, int prot, String libraryName) {
         Alignment alignment = emulator.align(address, size);
 
         log.debug("[" + libraryName + "]0x" + Long.toHexString(alignment.address) + " - 0x" + Long.toHexString(alignment.address + alignment.size) + ", size=0x" + Long.toHexString(alignment.size));
 
         unicorn.mem_map(alignment.address, alignment.size, prot);
+        return alignment;
     }
 
     private int get_segment_protection(int flags) {

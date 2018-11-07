@@ -63,6 +63,9 @@ public class LinuxSyscallHandler extends SyscallHandler {
                     case 224: // gettid
                         u.reg_write(ArmConst.UC_ARM_REG_R0, emulator.getPid());
                         return;
+                    case 33:
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, access(u));
+                        return;
                     case 36: // sync: causes all pending modifications to filesystem metadata and cached file data to be written to the underlying filesystems.
                         return;
                     case 37:
@@ -215,15 +218,37 @@ public class LinuxSyscallHandler extends SyscallHandler {
                         return;
                     case Dlfcn.__NR_dlopen:
                         Pointer filename = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R0);
-                        int flags = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue();
+                        int flags = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R1)).intValue();
                         if (log.isDebugEnabled()) {
-                            log.debug("dlopen filename=" + filename.getString(0) + ", flags=0x" + Long.toHexString(flags & 0xffffffffL));
+                            log.debug("dlopen filename=" + filename.getString(0) + ", flags=" + flags);
                         }
-                        u.reg_write(ArmConst.UC_ARM_REG_R0, dlfcn.dlopen(filename.getString(0), flags));
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, dlfcn.dlopen(emulator.getMemory(), filename.getString(0), flags));
                         return;
                     case Dlfcn.__NR_dlerror:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, dlfcn.dlerror());
                         return;
+                    case Dlfcn.__NR_dlsym:
+                        long handle = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue() & 0xffffffffL;
+                        Pointer symbol = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
+                        if (log.isDebugEnabled()) {
+                            log.debug("dlsym handle=0x" + Long.toHexString(handle) + ", symbol=" + symbol.getString(0));
+                        }
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, dlfcn.dlsym(emulator.getMemory(), handle, symbol.getString(0)));
+                        return;
+                    case Dlfcn.__NR_dlclose:
+                        handle = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue() & 0xffffffffL;
+                        if (log.isDebugEnabled()) {
+                            log.debug("dlclose handle=0x" + Long.toHexString(handle));
+                        }
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, dlfcn.dlclose(emulator.getMemory(), handle));
+                        return;
+                    case Dlfcn.__NR_dladdr:
+                        long addr = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue() & 0xffffffffL;
+                        Pointer info = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
+                        if (log.isDebugEnabled()) {
+                            log.debug("dladdr addr=0x" + Long.toHexString(addr) + ", info=" + info);
+                        }
+                        break;
                 }
             }
         } catch (UnsupportedOperationException e) {
@@ -241,6 +266,15 @@ public class LinuxSyscallHandler extends SyscallHandler {
         if (exception instanceof UnicornException) {
             throw (UnicornException) exception;
         }
+    }
+
+    private int access(Unicorn u) {
+        Pointer pathname = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R0);
+        int mode = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R1)).intValue();
+        if (log.isDebugEnabled()) {
+            log.debug("access pathname=" + pathname.getString(0) + ", mode=" + mode);
+        }
+        throw new UnsupportedOperationException();
     }
 
     private int execve(Unicorn u, Emulator emulator) {

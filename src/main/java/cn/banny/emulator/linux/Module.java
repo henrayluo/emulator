@@ -46,6 +46,12 @@ public class Module {
         this.regions = regions;
     }
 
+    void unload(Unicorn unicorn) {
+        for (MemRegion region : regions) {
+            unicorn.mem_unmap(region.begin, region.end - region.begin);
+        }
+    }
+
     private long entryPoint;
 
     void setEntryPoint(long entryPoint) {

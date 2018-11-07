@@ -1,5 +1,7 @@
 package cn.banny.emulator.dlfcn;
 
+import cn.banny.emulator.Memory;
+
 public interface Dlfcn {
 
     int __ARM_NR_BASE = 0xf0000;
@@ -15,7 +17,11 @@ public interface Dlfcn {
      */
     long hook(String soName, String symbol);
 
-    int dlopen(String filename, int flags);
+    int dlopen(Memory memory, String filename, int flags);
 
     int dlerror();
+
+    int dlsym(Memory memory, long handle, String symbol);
+
+    int dlclose(Memory memory, long handle);
 }
