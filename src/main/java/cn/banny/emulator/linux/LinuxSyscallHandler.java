@@ -4,6 +4,7 @@ import cn.banny.auxiliary.Inspector;
 import cn.banny.emulator.Emulator;
 import cn.banny.emulator.SyscallHandler;
 import cn.banny.emulator.arm.ARM;
+import cn.banny.emulator.dlfcn.Dlfcn;
 import cn.banny.emulator.linux.file.*;
 import cn.banny.emulator.pointer.UnicornPointer;
 import com.sun.jna.Pointer;
@@ -13,9 +14,7 @@ import unicorn.ArmConst;
 import unicorn.Unicorn;
 import unicorn.UnicornException;
 
-import java.util.Calendar;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * http://androidxref.com/4.4.4_r1/xref/external/kernel-headers/original/asm-arm/unistd.h
@@ -23,6 +22,10 @@ import java.util.Map;
 public class LinuxSyscallHandler extends SyscallHandler {
 
     private static final Log log = LogFactory.getLog(LinuxSyscallHandler.class);
+
+    public LinuxSyscallHandler(Dlfcn dlfcn) {
+        super(dlfcn);
+    }
 
     @Override
     public void hook(Unicorn u, int intno, Object user) {
@@ -210,6 +213,17 @@ public class LinuxSyscallHandler extends SyscallHandler {
                     case 295:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, getsockopt(u, emulator));
                         return;
+                    case Dlfcn.__NR_dlopen:
+                        Pointer filename = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R0);
+                        int flags = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue();
+                        if (log.isDebugEnabled()) {
+                            log.debug("dlopen filename=" + filename.getString(0) + ", flags=0x" + Long.toHexString(flags & 0xffffffffL));
+                        }
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, dlfcn.dlopen(filename.getString(0), flags));
+                        return;
+                    case Dlfcn.__NR_dlerror:
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, dlfcn.dlerror());
+                        return;
                 }
             }
         } catch (UnsupportedOperationException e) {
@@ -235,7 +249,18 @@ public class LinuxSyscallHandler extends SyscallHandler {
         Pointer envp = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R2);
         assert filename != null;
         if (log.isDebugEnabled()) {
-            log.debug("execve filename=" + filename.getString(0) + ", argv=" + argv + ", envp=" + envp);
+            List<String> args = new ArrayList<>();
+            Pointer pointer;
+            while ((pointer = argv.getPointer(0)) != null) {
+                args.add(pointer.getString(0));
+                argv = argv.share(4);
+            }
+            List<String> env = new ArrayList<>();
+            while ((pointer = envp.getPointer(0)) != null) {
+                env.add(pointer.getString(0));
+                envp = envp.share(4);
+            }
+            log.debug("execve filename=" + filename.getString(0) + ", args=" + args + ", env=" + env);
         }
         emulator.setErrno(Emulator.EACCES);
         return -1;

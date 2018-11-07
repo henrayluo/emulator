@@ -1,5 +1,6 @@
 package cn.banny.emulator.linux;
 
+import cn.banny.emulator.dlfcn.Dlfcn;
 import com.sun.jna.Pointer;
 import net.fornwall.jelf.ElfSymbol;
 
@@ -26,7 +27,7 @@ public class ModuleSymbol {
         this.offset = offset;
     }
 
-    ModuleSymbol resolve(Collection<Module> modules, boolean resolveWeak) throws IOException {
+    ModuleSymbol resolve(Collection<Module> modules, boolean resolveWeak, Dlfcn dlfcn) throws IOException {
         final String sym_name = symbol.getName();
         for (Module module : modules) {
             ElfSymbol elfSymbol = module.getELFSymbolByName(sym_name);
@@ -34,6 +35,10 @@ public class ModuleSymbol {
                 switch (elfSymbol.getBinding()) {
                     case ElfSymbol.BINDING_GLOBAL:
                     case ElfSymbol.BINDING_WEAK:
+                        long hook = dlfcn.hook(module.name, sym_name);
+                        if (hook > 0) {
+                            return new ModuleSymbol(soName, WEAK_BASE, elfSymbol, relocationAddr, module.name, hook);
+                        }
                         return new ModuleSymbol(soName, module.base, elfSymbol, relocationAddr, module.name, offset);
                 }
             }
@@ -47,7 +52,7 @@ public class ModuleSymbol {
     }
 
     void relocation() {
-        long value = load_base == WEAK_BASE ? 0 : load_base + symbol.value + offset;
+        long value = load_base == WEAK_BASE ? offset : load_base + symbol.value + offset;
         relocationAddr.setInt(0, (int) value);
     }
 

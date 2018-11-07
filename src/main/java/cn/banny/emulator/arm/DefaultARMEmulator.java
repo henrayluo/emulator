@@ -2,7 +2,6 @@ package cn.banny.emulator.arm;
 
 import capstone.Capstone;
 import cn.banny.emulator.AbstractEmulator;
-import cn.banny.emulator.linux.LinuxSyscallHandler;
 import cn.banny.emulator.pointer.UnicornPointer;
 import cn.banny.utils.Hex;
 import com.sun.jna.Pointer;
@@ -30,8 +29,7 @@ public class DefaultARMEmulator extends AbstractEmulator implements ARMEmulator 
     private final Capstone capstoneArm, capstoneThumb;
 
     public DefaultARMEmulator() {
-        super(UnicornConst.UC_ARCH_ARM, UnicornConst.UC_MODE_ARM,
-                new LinuxSyscallHandler());
+        super(UnicornConst.UC_ARCH_ARM, UnicornConst.UC_MODE_ARM);
         this.switchUserMode();
 
         this.capstoneArm = new Capstone(Capstone.CS_ARCH_ARM, Capstone.CS_MODE_ARM);

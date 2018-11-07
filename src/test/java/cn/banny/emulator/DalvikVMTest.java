@@ -6,7 +6,7 @@ import java.io.IOException;
 public class DalvikVMTest {
 
     public static void main(String[] args) throws IOException {
-        RunExecutable.run(new File("../example_binaries/dalvikvm"));
+        RunExecutable.run(new File("../example_binaries/dalvikvm"), "-cp", "dex.jar", "Emulator");
     }
 
 }

@@ -16,6 +16,7 @@ class RunExecutable {
     static void run(File executable, Object...args) throws IOException {
         final Emulator emulator = EmulatorFactory.createARMEmulator();
         try {
+            long start = System.currentTimeMillis();
             Memory memory = emulator.getMemory();
             memory.setLibraryResolver(new AndroidResolver(new File("../android"), 19));
 
@@ -46,12 +47,12 @@ class RunExecutable {
             assert value == Emulator.EACCES;
 
             // emulator.traceCode();
-            Pointer strerror = UnicornPointer.pointer(emulator.getUnicorn(), libc.callFunction(emulator, "strerror", 0x29)[0].intValue() & 0xffffffffL);
+            Pointer strerror = UnicornPointer.pointer(emulator.getUnicorn(), libc.callFunction(emulator, "strerror", Emulator.ECONNREFUSED)[0].intValue() & 0xffffffffL);
             assert strerror != null;
             System.out.println(strerror.getString(0));
 
             // emulator.traceCode();
-            System.out.println("exit code: " + module.callEntry(emulator, args));
+            System.out.println("exit code: " + module.callEntry(emulator, args) + ", offset=" + (System.currentTimeMillis() - start) + "ms");
         } finally {
             IOUtils.closeQuietly(emulator);
         }

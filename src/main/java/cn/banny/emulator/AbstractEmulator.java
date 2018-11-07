@@ -2,6 +2,7 @@ package cn.banny.emulator;
 
 import cn.banny.emulator.debugger.Debugger;
 import cn.banny.emulator.debugger.SimpleDebugger;
+import cn.banny.emulator.dlfcn.Implementation;
 import cn.banny.emulator.linux.LinuxSyscallHandler;
 import cn.banny.emulator.linux.Module;
 import cn.banny.emulator.linux.VirtualMemory;
@@ -33,7 +34,7 @@ public abstract class AbstractEmulator implements Emulator {
 
     protected long timeout = DEFAULT_TIMEOUT;
 
-    public AbstractEmulator(int unicorn_arch, int unicorn_mode, final LinuxSyscallHandler syscallHandler) {
+    public AbstractEmulator(int unicorn_arch, int unicorn_mode) {
         super();
         this.unicorn = new Unicorn(unicorn_arch, unicorn_mode);
 
@@ -45,11 +46,10 @@ public abstract class AbstractEmulator implements Emulator {
             }
         }, UnicornConst.UC_HOOK_MEM_READ_UNMAPPED | UnicornConst.UC_HOOK_MEM_WRITE_UNMAPPED | UnicornConst.UC_HOOK_MEM_FETCH_UNMAPPED, null);
 
+        SyscallHandler syscallHandler = new LinuxSyscallHandler(new Implementation(unicorn));
         this.memory = new VirtualMemory(unicorn, this, syscallHandler);
 
-        if (syscallHandler != null) {
-            unicorn.hook_add(syscallHandler, this);
-        }
+        unicorn.hook_add(syscallHandler, this);
 
         this.readHook = new TraceMemoryHook();
         this.writeHook = new TraceMemoryHook();

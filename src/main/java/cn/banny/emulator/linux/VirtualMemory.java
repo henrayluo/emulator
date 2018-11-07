@@ -89,7 +89,7 @@ public class VirtualMemory implements Memory {
         for (Module m : modules.values()) {
             for (Iterator<ModuleSymbol> iterator = m.getUnresolvedSymbol().iterator(); iterator.hasNext(); ) {
                 ModuleSymbol moduleSymbol = iterator.next();
-                ModuleSymbol resolved = moduleSymbol.resolve(modules.values(), true);
+                ModuleSymbol resolved = moduleSymbol.resolve(modules.values(), true, syscallHandler.dlfcn);
                 if (resolved != null) {
                     log.debug("[" + moduleSymbol.soName + "]" + moduleSymbol.symbol.getName() + " symbol resolved to " + resolved.toSoName);
                     resolved.relocation();
@@ -228,7 +228,7 @@ public class VirtualMemory implements Memory {
         for (Module module : modules.values()) {
             for (Iterator<ModuleSymbol> iterator = module.getUnresolvedSymbol().iterator(); iterator.hasNext(); ) {
                 ModuleSymbol moduleSymbol = iterator.next();
-                ModuleSymbol resolved = moduleSymbol.resolve(module.getNeededLibraries(), false);
+                ModuleSymbol resolved = moduleSymbol.resolve(module.getNeededLibraries(), false, syscallHandler.dlfcn);
                 if (resolved != null) {
                     log.debug("[" + moduleSymbol.soName + "]" + moduleSymbol.symbol.getName() + " symbol resolved to " + resolved.toSoName);
                     resolved.relocation();
@@ -353,7 +353,7 @@ public class VirtualMemory implements Memory {
             return new ModuleSymbol(soName, load_base, symbol, relocationAddr, soName, offset);
         }
 
-        return new ModuleSymbol(soName, load_base, symbol, relocationAddr, null, offset).resolve(neededLibraries, false);
+        return new ModuleSymbol(soName, load_base, symbol, relocationAddr, null, offset).resolve(neededLibraries, false, syscallHandler.dlfcn);
     }
 
     private void mem_map(long address, long size, int prot, String libraryName) {
