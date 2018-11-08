@@ -114,7 +114,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
                         u.reg_write(ArmConst.UC_ARM_REG_R0, setitimer(u));
                         return;
                     case 120:
-                        u.reg_write(ArmConst.UC_ARM_REG_R0, clone(u));
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, clone(u, emulator));
                         return;
                     case 122:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, uname(u));
@@ -280,14 +280,18 @@ public class LinuxSyscallHandler extends SyscallHandler {
         }
     }
 
-    private int clone(Unicorn u) {
-        Pointer fn = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R0);
+    private int clone(Unicorn u, Emulator emulator) {
+        int flags = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue();
         Pointer child_stack = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
-        int flags = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R2)).intValue();
-        Pointer arg = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R3);
+        Pointer pid = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R2);
+        Pointer tls = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R3);
+        Pointer ctid = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R4);
+        Pointer fn = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R5);
+        Pointer arg = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R6);
         if (log.isDebugEnabled()) {
-            log.debug("clone fn=" + fn + ", child_stack=" + child_stack + ", flags=" + flags + ", arg=" + arg);
+            log.debug("clone flags=0x" + Integer.toHexString(flags) + ", child_stack=" + child_stack + ", pid=" + pid + ", tls=" + tls + ", ctid=" + ctid + ", fn=" + fn + ", arg=" + arg);
         }
+        emulator.getMemory().setErrno(Emulator.EAGAIN);
         throw new AbstractMethodError();
     }
 
@@ -663,8 +667,14 @@ public class LinuxSyscallHandler extends SyscallHandler {
         int signum = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue();
         Pointer act = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
         Pointer oldact = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R2);
+
+        String prefix = "Unknown";
+        if (signum > 32) {
+            signum -= 32;
+            prefix = "Real-time";
+        }
         if (log.isDebugEnabled()) {
-            log.debug("sigaction signum=" + signum + ", act=" + act + ", oldact=" + oldact);
+            log.debug("sigaction signum=" + signum + ", act=" + act + ", oldact=" + oldact + ", prefix=" + prefix);
         }
 
         final int ACT_SIZE = 16;

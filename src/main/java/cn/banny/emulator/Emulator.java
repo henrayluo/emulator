@@ -18,6 +18,7 @@ public interface Emulator extends Closeable, Disassembler {
 
     int EPERM = 1;
     int EBADF = 9;
+    int EAGAIN = 11;
     int ENOMEM = 12;
     int EACCES = 13;
     int EINVAL = 22;

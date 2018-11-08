@@ -2,8 +2,6 @@ package cn.banny.emulator.arm;
 
 import capstone.Capstone;
 import cn.banny.emulator.AbstractEmulator;
-import cn.banny.emulator.pointer.UnicornPointer;
-import cn.banny.utils.Hex;
 import com.sun.jna.Pointer;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
