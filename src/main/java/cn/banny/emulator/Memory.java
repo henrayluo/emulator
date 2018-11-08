@@ -3,6 +3,7 @@ package cn.banny.emulator;
 import cn.banny.emulator.linux.IO;
 import cn.banny.emulator.linux.Module;
 import cn.banny.emulator.linux.ModuleListener;
+import cn.banny.emulator.linux.Symbol;
 import cn.banny.emulator.pointer.UnicornPointer;
 import com.sun.jna.Pointer;
 
@@ -17,7 +18,7 @@ public interface Memory extends IO {
 
     long MMAP_BASE = 0x40000000L;
 
-    long allocateStack(int size);
+    UnicornPointer allocateStack(int size);
     UnicornPointer writeStackString(String str);
     UnicornPointer writeStackBytes(byte[] data);
     void setStackPoint(long sp);
@@ -31,9 +32,9 @@ public interface Memory extends IO {
     byte[] unpack(File elfFile) throws IOException;
     Module findModuleByAddress(long address);
 
-    Module loadLibrary(String filename) throws IOException;
-    boolean unloadLibrary(long handle);
-    Module findModuleByHandle(long handle);
+    Module dlopen(String filename) throws IOException;
+    boolean dlclose(long handle);
+    Symbol dlsym(long handle, String symbol) throws IOException;
 
     int mmap2(long start, int length, int prot, int flags, int fd, int offset);
     int mprotect(long address, int length, int prot);

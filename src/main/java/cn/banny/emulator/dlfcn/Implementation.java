@@ -2,8 +2,8 @@ package cn.banny.emulator.dlfcn;
 
 import cn.banny.emulator.Memory;
 import cn.banny.emulator.linux.Module;
+import cn.banny.emulator.linux.Symbol;
 import cn.banny.emulator.pointer.UnicornPointer;
-import net.fornwall.jelf.ElfSymbol;
 import unicorn.Unicorn;
 import unicorn.UnicornConst;
 
@@ -111,7 +111,7 @@ public class Implementation implements Dlfcn {
     @Override
     public int dlopen(Memory memory, String filename, int flags) {
         try {
-            Module module = memory.loadLibrary(filename);
+            Module module = memory.dlopen(filename);
             if (module == null) {
                 this.error.setString(0, "Find " + filename + " failed");
                 return 0;
@@ -125,13 +125,12 @@ public class Implementation implements Dlfcn {
     @Override
     public int dlsym(Memory memory, long handle, String symbol) {
         try {
-            Module module = memory.findModuleByHandle(handle);
-            ElfSymbol elfSymbol = module == null ? null : module.getELFSymbolByName(symbol);
+            Symbol elfSymbol = memory.dlsym(handle, symbol);
             if (elfSymbol == null) {
                 this.error.setString(0, "Find symbol " + symbol + " failed");
                 return 0;
             }
-            return (int) (module.base + elfSymbol.value);
+            return (int) elfSymbol.getAddress();
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
@@ -139,7 +138,7 @@ public class Implementation implements Dlfcn {
 
     @Override
     public int dlclose(Memory memory, long handle) {
-        if (memory.unloadLibrary(handle)) {
+        if (memory.dlclose(handle)) {
             return 0;
         } else {
             this.error.setString(0, "dlclose 0x" + Long.toHexString(handle) + " failed");

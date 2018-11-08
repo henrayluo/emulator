@@ -24,9 +24,7 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-import static unicorn.ArmConst.UC_ARM_REG_C13_C0_3;
-import static unicorn.ArmConst.UC_ARM_REG_C1_C0_2;
-import static unicorn.ArmConst.UC_ARM_REG_FPEXC;
+import static unicorn.ArmConst.*;
 
 public class VirtualMemory implements Memory {
 
@@ -60,9 +58,9 @@ public class VirtualMemory implements Memory {
     }
 
     @Override
-    public long allocateStack(int size) {
+    public UnicornPointer allocateStack(int size) {
         setStackPoint(sp - size);
-        return sp;
+        return UnicornPointer.pointer(unicorn, sp);
     }
 
     @Override
@@ -74,7 +72,7 @@ public class VirtualMemory implements Memory {
     @Override
     public UnicornPointer writeStackBytes(byte[] data) {
         int size = ARM.alignSize(data.length);
-        UnicornPointer pointer = UnicornPointer.pointer(unicorn, allocateStack(size));
+        UnicornPointer pointer = allocateStack(size);
         assert pointer != null;
         pointer.write(0, data, 0, data.length);
         return pointer;
@@ -94,32 +92,32 @@ public class VirtualMemory implements Memory {
     }
 
     private void initializeTLS() {
-        final Pointer thread = UnicornPointer.pointer(unicorn, allocateStack(0x400)); // reserve space for pthread_internal_t
+        final Pointer thread = allocateStack(0x400); // reserve space for pthread_internal_t
 
-        final Pointer __stack_chk_guard = UnicornPointer.pointer(unicorn, allocateStack(4));
+        final Pointer __stack_chk_guard = allocateStack(4);
 
         final Pointer programName = writeStackString(emulator.getProcessName());
 
-        final Pointer programNamePointer = UnicornPointer.pointer(unicorn, allocateStack(4));
+        final Pointer programNamePointer = allocateStack(4);
         assert programNamePointer != null;
         programNamePointer.setPointer(0, programName);
 
-        final Pointer vector = UnicornPointer.pointer(unicorn, allocateStack(0x100));
+        final Pointer vector = allocateStack(0x100);
         assert vector != null;
         vector.setInt(0, 25); // AT_RANDOM is a pointer to 16 bytes of randomness on the stack.
         vector.setPointer(4, __stack_chk_guard);
 
-        final Pointer environ = UnicornPointer.pointer(unicorn, allocateStack(4));
+        final Pointer environ = allocateStack(4);
         assert environ != null;
         environ.setInt(0, 0);
 
-        final Pointer argv = UnicornPointer.pointer(unicorn, allocateStack(0x100));
+        final Pointer argv = allocateStack(0x100);
         assert argv != null;
         argv.setPointer(4, programNamePointer);
         argv.setPointer(8, environ);
         argv.setPointer(0xc, vector);
 
-        final UnicornPointer tls = UnicornPointer.pointer(unicorn, allocateStack(0x80 * 4)); // tls size
+        final UnicornPointer tls = allocateStack(0x80 * 4); // tls size
         assert tls != null;
         tls.setPointer(4, thread);
         this.errno = tls.share(8);
@@ -209,7 +207,7 @@ public class VirtualMemory implements Memory {
      * dlopen调用init_array会崩溃
      */
     @Override
-    public Module loadLibrary(String filename) throws IOException {
+    public Module dlopen(String filename) throws IOException {
         File file = libraryResolver == null ? null : libraryResolver.resolveLibrary(filename);
         if (file == null) {
             return null;
@@ -232,17 +230,22 @@ public class VirtualMemory implements Memory {
     }
 
     @Override
-    public Module findModuleByHandle(long handle) {
+    public Symbol dlsym(long handle, String symbol) throws IOException {
         for (Module module : modules.values()) {
             if (module.base == handle) {
-                return module;
+                ElfSymbol elfSymbol = module.getELFSymbolByName(symbol);
+                if (elfSymbol == null) {
+                    return null;
+                } else {
+                    return new Symbol(module, elfSymbol);
+                }
             }
         }
         return null;
     }
 
     @Override
-    public boolean unloadLibrary(long handle) {
+    public boolean dlclose(long handle) {
         for (Iterator<Map.Entry<String, Module>> iterator = modules.entrySet().iterator(); iterator.hasNext(); ) {
             Module module = iterator.next().getValue();
             if (module.base == handle) {

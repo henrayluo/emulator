@@ -130,7 +130,7 @@ public class AndroidARMEmulator extends AbstractEmulator implements ARMEmulator 
         }
         while (args.args != null && i < args.args.length) {
             Number number = (Number) args.args[i];
-            Pointer pointer = UnicornPointer.pointer(unicorn, memory.allocateStack(4));
+            Pointer pointer = memory.allocateStack(4);
             assert pointer != null;
             pointer.setInt(0, number.intValue());
             i++;

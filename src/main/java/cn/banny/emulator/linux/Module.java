@@ -110,9 +110,8 @@ public class Module {
             throw new IllegalStateException("Invalid entry point");
         }
 
-        final Unicorn unicorn = emulator.getUnicorn();
         Memory memory = emulator.getMemory();
-        final long stack = memory.allocateStack(0);
+        final UnicornPointer stack = memory.allocateStack(0);
 
         int argc = 0;
         List<Pointer> argv = new ArrayList<>();
@@ -126,32 +125,32 @@ public class Module {
             argc++;
         }
 
-        Pointer auxvPointer = UnicornPointer.pointer(unicorn, memory.allocateStack(4));
+        Pointer auxvPointer = memory.allocateStack(4);
         assert auxvPointer != null;
         auxvPointer.setPointer(0, null);
 
-        Pointer envPointer = UnicornPointer.pointer(unicorn, memory.allocateStack(4));
+        Pointer envPointer = memory.allocateStack(4);
         assert envPointer != null;
         envPointer.setPointer(0, null);
 
-        Pointer pointer = UnicornPointer.pointer(unicorn, memory.allocateStack(4));
+        Pointer pointer = memory.allocateStack(4);
         assert pointer != null;
         pointer.setPointer(0, null); // NULL-terminated argv
 
         Collections.reverse(argv);
         for (Pointer arg : argv) {
-            pointer = UnicornPointer.pointer(unicorn, memory.allocateStack(4));
+            pointer = memory.allocateStack(4);
             assert pointer != null;
             pointer.setPointer(0, arg);
         }
 
-        UnicornPointer kernelArgumentBlock = UnicornPointer.pointer(unicorn, memory.allocateStack(4));
+        UnicornPointer kernelArgumentBlock = memory.allocateStack(4);
         assert kernelArgumentBlock != null;
         kernelArgumentBlock.setInt(0, argc);
 
         if (log.isDebugEnabled()) {
-            long sp = memory.allocateStack(0);
-            byte[] data = unicorn.mem_read(sp, stack - sp);
+            UnicornPointer sp = memory.allocateStack(0);
+            byte[] data = sp.getByteArray(0, (int) (stack.peer - sp.peer));
             Inspector.inspect(data, "kernelArgumentBlock=" + kernelArgumentBlock + ", envPointer=" + envPointer + ", auxvPointer=" + auxvPointer);
         }
 
