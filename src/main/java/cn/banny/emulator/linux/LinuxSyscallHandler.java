@@ -204,6 +204,9 @@ public class LinuxSyscallHandler extends SyscallHandler {
                     case 266:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, statfs(u));
                         return;
+                    case 268:
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, tgkill(u));
+                        return;
                     case 281:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, socket(u, emulator));
                         return;
@@ -278,6 +281,16 @@ public class LinuxSyscallHandler extends SyscallHandler {
         if (exception instanceof UnicornException) {
             throw (UnicornException) exception;
         }
+    }
+
+    private int tgkill(Unicorn u) {
+        int tgid = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue();
+        int tid = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R1)).intValue();
+        int sig = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R2)).intValue();
+        if (log.isDebugEnabled()) {
+            log.debug("tgkill tgid=" + tgid + ", tid=" + tid + ", sig=" + sig);
+        }
+        return 0;
     }
 
     private int clone(Unicorn u, Emulator emulator) {

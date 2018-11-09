@@ -79,6 +79,11 @@ public class VirtualMemory implements Memory {
     }
 
     @Override
+    public UnicornPointer pointer(long address) {
+        return UnicornPointer.pointer(unicorn, address);
+    }
+
+    @Override
     public void setStackPoint(long sp) {
         this.sp = sp;
         unicorn.reg_write(ArmConst.UC_ARM_REG_SP, sp);

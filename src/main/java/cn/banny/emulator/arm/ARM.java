@@ -3,12 +3,15 @@ package cn.banny.emulator.arm;
 import capstone.Capstone;
 import cn.banny.emulator.Memory;
 import cn.banny.emulator.linux.Module;
+import com.sun.jna.Pointer;
 import unicorn.ArmConst;
 import unicorn.Unicorn;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * arm utils
@@ -228,16 +231,22 @@ public class ARM {
         }
     }
 
-    public static String assembleDetail(Memory memory, Capstone.CsInsn ins, long address, boolean thumb) {
+    private static final Pattern LDR_PATTERN = Pattern.compile("\\w+,\\s\\[pc,\\s#0x(\\w+)]");
+
+    static String assembleDetail(Memory memory, Capstone.CsInsn ins, long address, boolean thumb) {
+        return assembleDetail(memory, ins, address, thumb, ' ');
+    }
+
+    public static String assembleDetail(Memory memory, Capstone.CsInsn ins, long address, boolean thumb, char space) {
         StringBuilder sb = new StringBuilder();
         Module module = memory.findModuleByAddress(address);
         if (module != null) {
-            sb.append(String.format("[%" + memory.getMaxLengthSoName().length() + "s] ", module.name));
-            sb.append(String.format("[0x%0" + Long.toHexString(memory.getMaxSizeOfSo()).length() + "x] ", address - module.base + (thumb ? 1 : 0)));
+            sb.append(String.format("[%" + memory.getMaxLengthSoName().length() + "s]", module.name)).append(space);
+            sb.append(String.format("[0x%0" + Long.toHexString(memory.getMaxSizeOfSo()).length() + "x]", address - module.base + (thumb ? 1 : 0))).append(space);
         }
         sb.append("[");
         if (ins.size == 2) {
-            sb.append("      ");
+            sb.append(space).append("     ");
         }
         for (byte b : ins.bytes) {
             sb.append(' ');
@@ -247,8 +256,23 @@ public class ARM {
             }
             sb.append(hex);
         }
-        sb.append(" ] ");
-        sb.append(String.format("0x%08x: %s %s", ins.address, ins.mnemonic, ins.opStr));
+        sb.append(" ]").append(space);
+        sb.append(String.format("0x%08x:" + space + "%s %s", ins.address, ins.mnemonic, ins.opStr));
+
+        if ("ldr".equals(ins.mnemonic)) {
+            Matcher matcher = LDR_PATTERN.matcher(ins.opStr);
+            if (matcher.find()) {
+                long addr = ins.address + Long.parseLong(matcher.group(1), 16);
+                addr += (thumb ? 4 : 8);
+                Pointer pointer = memory.pointer(addr & 0xfffffffffffffffcL);
+                int value = pointer.getInt(0);
+                sb.append(" => 0x").append(Long.toHexString(value & 0xffffffffL));
+                if (value < 0) {
+                    sb.append(" (-0x").append(Integer.toHexString(-value)).append(")");
+                }
+            }
+        }
+
         return sb.toString();
     }
 

@@ -21,6 +21,7 @@ public interface Memory extends IO {
     UnicornPointer allocateStack(int size);
     UnicornPointer writeStackString(String str);
     UnicornPointer writeStackBytes(byte[] data);
+    UnicornPointer pointer(long address);
     void setStackPoint(long sp);
 
     void setCallInitFunction();

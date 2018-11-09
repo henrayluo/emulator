@@ -3,6 +3,7 @@ package cn.banny.emulator.debugger;
 import capstone.Capstone;
 import cn.banny.auxiliary.Inspector;
 import cn.banny.emulator.Emulator;
+import cn.banny.emulator.Memory;
 import cn.banny.emulator.arm.ARM;
 import cn.banny.emulator.linux.Module;
 import cn.banny.emulator.pointer.UnicornPointer;
@@ -38,7 +39,7 @@ public class SimpleDebugger implements Debugger {
 
     @Override
     public void addBreakPoint(Module module, long offset) {
-        long address = (module.base + offset) & 0xfffffffeL;
+        long address = (module == null ? offset : module.base + offset) & 0xfffffffeL;
         if (log.isDebugEnabled()) {
             log.debug("addBreakPoint address=0x" + Long.toHexString(address));
         }
@@ -47,10 +48,15 @@ public class SimpleDebugger implements Debugger {
 
     private class CodeHistory {
         final long address;
-        final String asm;
-        CodeHistory(long address, String asm) {
+        final byte[] asm;
+        final boolean thumb;
+        CodeHistory(long address, byte[] asm, boolean thumb) {
             this.address = address;
             this.asm = asm;
+            this.thumb = thumb;
+        }
+        Capstone.CsInsn disassemble(Emulator emulator) {
+            return emulator.disassemble(address, asm, thumb)[0];
         }
     }
 
@@ -63,13 +69,10 @@ public class SimpleDebugger implements Debugger {
         while (historyList.size() > 10) {
             historyList.remove(0);
         }
-        Capstone.CsInsn[] insns = emulator.disassemble(address, size, 0);
-        historyList.add(new CodeHistory(address, ARM.assembleDetail(emulator.getMemory(), insns[0], address, ARM.isThumb(u))));
+        CodeHistory history = new CodeHistory(address, u.mem_read(address, size), ARM.isThumb(u));
+        historyList.add(history);
 
-        if (singleStep) {
-            loop(emulator, u, address, size);
-            return;
-        }
+        singleStep--;
 
         if (breakMap.containsKey(address)) {
             Module breakModule = breakMap.get(address);
@@ -77,6 +80,14 @@ public class SimpleDebugger implements Debugger {
                 breakMap.remove(address); // remove temp breakpoint
             }
             loop(emulator, u, address, size);
+        } else if (singleStep == 0) {
+            loop(emulator, u, address, size);
+        } else if (breakMnemonic != null) {
+            Capstone.CsInsn ins = history.disassemble(emulator);
+            if (breakMnemonic.equals(ins.mnemonic)) {
+                breakMnemonic = null;
+                loop(emulator, u, address, size);
+            }
         }
     }
 
@@ -87,11 +98,10 @@ public class SimpleDebugger implements Debugger {
         loop(emulator, unicorn, address, 0);
     }
 
-    private boolean singleStep;
+    private int singleStep;
 
     private void loop(Emulator emulator, Unicorn u, long address, int size) {
         System.out.println("debugger break at: 0x" + Long.toHexString(address));
-        singleStep = false;
         boolean thumb = ARM.isThumb(u);
         long nextAddress = 0;
         try {
@@ -105,6 +115,25 @@ public class SimpleDebugger implements Debugger {
         String line;
         while ((line = scanner.nextLine()) != null) {
             try {
+                if ("help".equals(line)) {
+                    System.out.println("c: continue");
+                    System.out.println("n: step over");
+                    System.out.println();
+                    System.out.println("s|si: step into");
+                    System.out.println("s[decimal]: execute specified amount instruction");
+                    System.out.println("sblx: execute util BLX mnemonic");
+                    System.out.println();
+                    System.out.println("m(op) [size]: show memory, default size is 0x70, size may hex or decimal");
+                    System.out.println("mr0-mr7, mfp, mip, msp [size]: show memory of specified register");
+                    System.out.println("m(address) [size]: show memory of specified address, address must start with 0x");
+                    System.out.println();
+                    System.out.println("b(address): add temporarily breakpoint, address must start with 0x, can be module offset");
+                    System.out.println("blr: add temporarily breakpoint of register LR");
+                    System.out.println();
+                    System.out.println("d|dis: show disassemble");
+                    System.out.println("stop: stop emulation");
+                    continue;
+                }
                 if ("d".equals(line) || "dis".equals(line)) {
                     disassemble(emulator, address, size, thumb);
                     continue;
@@ -165,13 +194,22 @@ public class SimpleDebugger implements Debugger {
                     }
                 }
                 if (line.startsWith("b0x")) {
-                    long addr = Long.parseLong(line.substring(3), 16) & 0xFFFFFFFFFFFFFFFEL;
-                    breakMap.put(addr, null); // temp breakpoint
-                    System.out.println("Add temporarily breakpoint: 0x" + Long.toHexString(addr));
-                    continue;
+                    try {
+                        long addr = Long.parseLong(line.substring(3), 16) & 0xFFFFFFFFFFFFFFFEL;
+                        Module module;
+                        if (addr < Memory.MMAP_BASE && (module = emulator.getMemory().findModuleByAddress(address)) != null) {
+                            addr += module.base;
+                        }
+                        breakMap.put(addr, null); // temp breakpoint
+                        System.out.println("Add temporarily breakpoint: 0x" + Long.toHexString(addr));
+                        continue;
+                    } catch(NumberFormatException ignored) {
+                    }
                 }
                 if ("blr".equals(line)) { // break LR
-                    breakMap.put(((Number) u.reg_read(ArmConst.UC_ARM_REG_LR)).intValue() & 0xffffffffL, null);
+                    long addr = ((Number) u.reg_read(ArmConst.UC_ARM_REG_LR)).intValue() & 0xffffffffL;
+                    breakMap.put(addr, null);
+                    System.out.println("Add temporarily breakpoint: 0x" + Long.toHexString(addr));
                     continue;
                 }
                 if ("c".equals(line)) { // continue
@@ -187,19 +225,30 @@ public class SimpleDebugger implements Debugger {
                         break;
                     }
                 }
-                if ("s".equals(line) || "si".equals(line)) {
-                    singleStep = true;
-                    break;
-                }
                 if ("stop".equals(line)) {
                     u.emu_stop();
                     break;
+                }
+                if ("s".equals(line) || "si".equals(line)) {
+                    singleStep = 1;
+                    break;
+                }
+                if (line.startsWith("s")) {
+                    try {
+                        singleStep = Integer.parseInt(line.substring(1));
+                        break;
+                    } catch (NumberFormatException e) {
+                        breakMnemonic = line.substring(1);
+                        break;
+                    }
                 }
             } catch (UnicornException e) {
                 e.printStackTrace();
             }
         }
     }
+
+    private String breakMnemonic;
 
     /**
      * @return next address
@@ -210,7 +259,7 @@ public class SimpleDebugger implements Debugger {
         StringBuilder sb = new StringBuilder();
         for (CodeHistory history : historyList) {
             if (history.address == address) {
-                sb.append("=>  ");
+                sb.append("=> *");
                 on = true;
             } else {
                 sb.append("    ");
@@ -219,13 +268,14 @@ public class SimpleDebugger implements Debugger {
                     on = false;
                 }
             }
-            sb.append(history.asm).append('\n');
+            Capstone.CsInsn ins = history.disassemble(emulator);
+            sb.append(ARM.assembleDetail(emulator.getMemory(), ins, history.address, history.thumb, on ? '*' : ' ')).append('\n');
         }
         long nextAddr = address + size;
         Capstone.CsInsn[] insns = emulator.disassemble(nextAddr, 4 * 10, 10);
         for (Capstone.CsInsn ins : insns) {
             if (nextAddr == address) {
-                sb.append("=>  ");
+                sb.append("=> *");
                 on = true;
             } else {
                 sb.append("    ");
@@ -234,7 +284,7 @@ public class SimpleDebugger implements Debugger {
                     on = false;
                 }
             }
-            sb.append(ARM.assembleDetail(emulator.getMemory(), ins, nextAddr, thumb)).append('\n');
+            sb.append(ARM.assembleDetail(emulator.getMemory(), ins, nextAddr, thumb, on ? '*' : ' ')).append('\n');
             nextAddr += ins.size;
         }
         System.out.println(sb);

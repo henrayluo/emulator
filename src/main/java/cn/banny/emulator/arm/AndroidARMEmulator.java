@@ -23,7 +23,7 @@ public class AndroidARMEmulator extends AbstractEmulator implements ARMEmulator 
     private static final Log log = LogFactory.getLog(AndroidARMEmulator.class);
 
     private final Capstone capstoneArm, capstoneThumb;
-    private static final long LR = 0xffff0fa0L;
+    private static final long LR = 0xffff0000L;
 
     public AndroidARMEmulator() {
         this(null);
@@ -66,13 +66,13 @@ public class AndroidARMEmulator extends AbstractEmulator implements ARMEmulator 
                 (byte) 0x00, (byte) 0x00, (byte) 0x73, (byte) 0xe2, // rsbs r0, r3, #0
                 (byte) 0xef, (byte) 0xff, (byte) 0xff, (byte) 0xea, // b #0xffff0fa0
         };
-        unicorn.mem_write(LR, __kuser_memory_barrier);
+        unicorn.mem_write(0xffff0fa0L, __kuser_memory_barrier);
         unicorn.mem_write(0xffff0fc0L, __kuser_cmpxchg);
 
         if (log.isDebugEnabled()) {
             log.debug("__kuser_memory_barrier");
             for (int i = 0; i < __kuser_memory_barrier.length; i += 4) {
-                printAssemble(LR + i, 4);
+                printAssemble(0xffff0fa0L + i, 4);
             }
             log.debug("__kuser_cmpxchg");
             for (int i = 0; i < __kuser_cmpxchg.length; i += 4) {
@@ -92,6 +92,11 @@ public class AndroidARMEmulator extends AbstractEmulator implements ARMEmulator 
         boolean thumb = ARM.isThumb(unicorn);
         byte[] code = unicorn.mem_read(address, size);
         return thumb ? capstoneThumb.disasm(code, address, count) : capstoneArm.disasm(code, address, count);
+    }
+
+    @Override
+    public Capstone.CsInsn[] disassemble(long address, byte[] code, boolean thumb) {
+        return thumb ? capstoneThumb.disasm(code, address) : capstoneArm.disasm(code, address);
     }
 
     private void printAssemble(Capstone.CsInsn[] insns, long address, boolean thumb) {

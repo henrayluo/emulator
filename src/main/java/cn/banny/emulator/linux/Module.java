@@ -181,6 +181,8 @@ public class Module {
                 list.add(pointer.peer);
             } else if (arg instanceof Number) {
                 list.add((Number) arg);
+            } else if(arg == null) {
+                list.add(0); // null
             } else {
                 throw new IllegalStateException("Unsupported arg: " + arg);
             }
