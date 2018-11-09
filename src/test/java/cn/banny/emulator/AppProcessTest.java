@@ -6,7 +6,7 @@ import java.io.IOException;
 public class AppProcessTest {
 
     public static void main(String[] args) throws IOException {
-        RunExecutable.run(new File("example_binaries/app_process"), null);
+        RunExecutable.run(new File("src/test/resources/example_binaries/app_process"), null);
     }
 
 }

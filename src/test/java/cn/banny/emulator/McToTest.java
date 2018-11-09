@@ -19,7 +19,7 @@ public class McToTest extends EmulatorTest {
         long start = System.currentTimeMillis();
         emulator.getMemory().setCallInitFunction();
         Unicorn unicorn = emulator.getUnicorn();
-        Module module = emulator.loadLibrary(new File("mcto/libmcto_media_player.so"));
+        Module module = emulator.loadLibrary(new File("src/test/resources/mcto/libmcto_media_player.so"));
         System.err.println("load offset=" + (System.currentTimeMillis() - start) + "ms");
         start = System.currentTimeMillis();
         // emulator.traceCode();

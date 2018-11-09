@@ -14,6 +14,7 @@ import unicorn.ArmConst;
 import unicorn.Unicorn;
 import unicorn.UnicornException;
 
+import java.io.File;
 import java.util.*;
 
 /**
@@ -153,7 +154,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
                         u.reg_write(ArmConst.UC_ARM_REG_R0, prctl(u));
                         return;
                     case 183:
-                        u.reg_write(ArmConst.UC_ARM_REG_R0, getcwd(u));
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, getcwd(u, emulator));
                         return;
                     case 192:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, mmap2(u, emulator));
@@ -886,13 +887,18 @@ public class LinuxSyscallHandler extends SyscallHandler {
         return 0;
     }
 
-    private int getcwd(Unicorn u) {
+    private int getcwd(Unicorn u, Emulator emulator) {
         UnicornPointer buf = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R0);
         int size = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R1)).intValue();
         if (log.isDebugEnabled()) {
             log.debug("getcwd buf=" + buf + ", size=" + size);
         }
-        buf.setString(0, "/");
+        File workDir = emulator.getWorkDir();
+        if (workDir == null) {
+            buf.setString(0, "/");
+        } else {
+            buf.setString(0, workDir.getAbsolutePath());
+        }
         return (int) buf.peer;
     }
 

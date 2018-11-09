@@ -16,6 +16,7 @@ class RunExecutable {
 
     static void run(File executable, ModuleListener listener, String[] preloads, Object...args) throws IOException {
         final Emulator emulator = new AndroidARMEmulator(executable.getName());
+        emulator.setWorkDir(executable.getParentFile());
         try {
             long start = System.currentTimeMillis();
             Memory memory = emulator.getMemory();

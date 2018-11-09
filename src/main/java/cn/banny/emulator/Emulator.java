@@ -85,4 +85,7 @@ public interface Emulator extends Closeable, Disassembler {
      */
     Debugger attach();
 
+    void setWorkDir(File dir);
+    File getWorkDir();
+
 }

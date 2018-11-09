@@ -525,7 +525,7 @@ public class VirtualMemory implements Memory {
 
     @Override
     public int stat64(String pathname, Pointer statbuf) {
-        File file = libraryResolver == null ? null : libraryResolver.resolveFile(pathname);
+        File file = libraryResolver == null ? null : libraryResolver.resolveFile(emulator.getWorkDir(), pathname);
         if (file != null) {
             return new SimpleFileIO(FileIO.O_RDWR, file, pathname).fstat(emulator, unicorn, statbuf);
         } else {
@@ -664,7 +664,7 @@ public class VirtualMemory implements Memory {
             return minFd;
         }
 
-        File file = libraryResolver == null ? null : libraryResolver.resolveFile(pathname);
+        File file = libraryResolver == null ? null : libraryResolver.resolveFile(emulator.getWorkDir(), pathname);
         if (file == null) {
             setErrno(Emulator.EACCES);
             return -1;

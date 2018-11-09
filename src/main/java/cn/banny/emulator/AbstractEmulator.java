@@ -257,4 +257,16 @@ public abstract class AbstractEmulator implements Emulator {
     public String getProcessName() {
         return processName == null ? "emulator" : processName;
     }
+
+    private File workDir;
+
+    @Override
+    public void setWorkDir(File dir) {
+        this.workDir = dir;
+    }
+
+    @Override
+    public File getWorkDir() {
+        return workDir;
+    }
 }

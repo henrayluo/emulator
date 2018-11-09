@@ -9,7 +9,7 @@ import java.io.IOException;
 public class SSHDebug implements ModuleListener {
 
     public static void main(String[] args) throws IOException {
-        RunExecutable.run(new File("example_binaries/ssh"), new SSHDebug(), "-p", "4446", "root@p.gzmtx.cn");
+        RunExecutable.run(new File("src/test/resources/example_binaries/ssh"), new SSHDebug(), "-p", "4446", "root@p.gzmtx.cn");
     }
 
     @Override

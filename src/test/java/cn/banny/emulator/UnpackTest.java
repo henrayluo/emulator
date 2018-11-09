@@ -21,7 +21,7 @@ public class UnpackTest extends EmulatorTest {
     }
 
     public void testShellDemo() throws Exception {
-        File elfFile = new File("unpack/libdemo.so");
+        File elfFile = new File("src/test/resources/unpack/libdemo.so");
         String name = FilenameUtils.getBaseName(elfFile.getName());
         byte[] unpacked = emulator.getMemory().unpack(elfFile);
         File unpackedFile = new File(elfFile.getParentFile(), name + "_unpacked." + FilenameUtils.getExtension(elfFile.getName()));
@@ -30,7 +30,7 @@ public class UnpackTest extends EmulatorTest {
     }
 
     public void testUnpackVerify() throws Exception {
-        File elfFile = new File("unpack/libverify.so");
+        File elfFile = new File("src/test/resources/unpack/libverify.so");
         String name = FilenameUtils.getBaseName(elfFile.getName());
         byte[] unpacked = emulator.getMemory().unpack(elfFile);
         File unpackedFile = new File(elfFile.getParentFile(), name + "_unpacked." + FilenameUtils.getExtension(elfFile.getName()));
@@ -39,7 +39,7 @@ public class UnpackTest extends EmulatorTest {
     }
 
     public void testUnpackCrackMe() throws Exception {
-        File elfFile = new File("unpack/libhoudini.so");
+        File elfFile = new File("src/test/resources/unpack/libhoudini.so");
         byte[] unpacked = emulator.getMemory().unpack(elfFile);
         File unpackedFile = new File(elfFile.getParentFile(), FilenameUtils.getBaseName(elfFile.getName()) + "_unpacked." + FilenameUtils.getExtension(elfFile.getName()));
         FileUtils.writeByteArrayToFile(unpackedFile, unpacked);
