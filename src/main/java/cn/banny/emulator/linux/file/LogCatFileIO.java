@@ -45,6 +45,14 @@ public class LogCatFileIO extends SimpleFileIO {
         if (log.isDebugEnabled()) {
             setDebugStream(System.out);
         }
+
+        try {
+            if (randomAccessFile != null) {
+                randomAccessFile.getChannel().truncate(0);
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
@@ -111,11 +119,6 @@ public class LogCatFileIO extends SimpleFileIO {
             throw new IllegalStateException(e);
         }
         return data.length;
-    }
-
-    @Override
-    OutputStream createFileOutputStream(File file) throws FileNotFoundException {
-        return new FileOutputStream(file, true);
     }
 
     @Override

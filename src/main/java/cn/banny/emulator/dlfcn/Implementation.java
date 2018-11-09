@@ -1,9 +1,14 @@
 package cn.banny.emulator.dlfcn;
 
 import cn.banny.emulator.Memory;
+import cn.banny.emulator.linux.InitFunction;
 import cn.banny.emulator.linux.Module;
 import cn.banny.emulator.linux.Symbol;
 import cn.banny.emulator.pointer.UnicornPointer;
+import com.sun.jna.Pointer;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import unicorn.ArmConst;
 import unicorn.Unicorn;
 import unicorn.UnicornConst;
 
@@ -12,6 +17,8 @@ import java.nio.ByteBuffer;
 
 public class Implementation implements Dlfcn {
 
+    private static final Log log = LogFactory.getLog(Implementation.class);
+
     private final UnicornPointer error;
     private final long dlerror;
     private final long dlclose;
@@ -19,7 +26,11 @@ public class Implementation implements Dlfcn {
     private final long dladdr;
     private final long dlsym;
 
+    private Unicorn unicorn;
+
     public Implementation(Unicorn unicorn) {
+        this.unicorn = unicorn;
+
         long base = 0xfffe0000L;
         unicorn.mem_map(base, 0x10000, UnicornConst.UC_PROT_READ | UnicornConst.UC_PROT_EXEC);
         byte[] b0 = new byte[] { 0x00, (byte) 0xf0, (byte) 0xa0, (byte) 0xe3 }; // mov pc, #0
@@ -57,10 +68,18 @@ public class Implementation implements Dlfcn {
         base += dlclose.length;
 
         byte[] dlopen = new byte[] {
-                (byte) 0x07, (byte) 0xc0, (byte) 0xa0, (byte) 0xe1, // mov r12, r7
+                (byte) 0x04, (byte) 0xe0, (byte) 0x2d, (byte) 0xe5, // push {lr}
+                (byte) 0x04, (byte) 0x70, (byte) 0x2d, (byte) 0xe5, // push {r7}
                 (byte) 0xf3, (byte) 0x7a, (byte) 0xa0, (byte) 0xe3, // mov r7, #0xf3000
                 (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xef, // svc 0
-                (byte) 0x0c, (byte) 0x70, (byte) 0xa0, (byte) 0xe1, // mov r7, r12
+                (byte) 0x04, (byte) 0x70, (byte) 0x9d, (byte) 0xe4, // pop {r7} ; manipulate stack in dlopen
+                (byte) 0x00, (byte) 0x00, (byte) 0x57, (byte) 0xe3, // cmp r7, #0
+                (byte) 0x37, (byte) 0xff, (byte) 0x2f, (byte) 0x11, // blxne r7 ; call init array
+                (byte) 0x00, (byte) 0x00, (byte) 0x57, (byte) 0xe3, // cmp r7, #0
+                (byte) 0xfa, (byte) 0xff, (byte) 0xff, (byte) 0x1a, // bne #-24
+                (byte) 0x04, (byte) 0x00, (byte) 0x9d, (byte) 0xe4, // pop {r0} ; return address
+                (byte) 0x04, (byte) 0x70, (byte) 0x9d, (byte) 0xe4, // pop {r7}
+                (byte) 0x04, (byte) 0xe0, (byte) 0x9d, (byte) 0xe4, // pop {lr}
                 (byte) 0x1e, (byte) 0xff, (byte) 0x2f, (byte) 0xe1, // bx lr
         };
         this.dlopen = base;
@@ -87,6 +106,8 @@ public class Implementation implements Dlfcn {
         };
         this.dlsym = base;
         unicorn.mem_write(this.dlsym, dlsym);
+
+        log.debug("dlopen=0x" + Long.toHexString(this.dlopen) + ", dlsym=0x" + Long.toHexString(this.dlsym));
     }
 
     @Override
@@ -110,15 +131,49 @@ public class Implementation implements Dlfcn {
 
     @Override
     public int dlopen(Memory memory, String filename, int flags) {
+        Pointer pointer = UnicornPointer.register(unicorn, ArmConst.UC_ARM_REG_SP);
         try {
             Module module = memory.dlopen(filename, false);
             if (module == null) {
+                pointer = pointer.share(-4); // return value
+                pointer.setInt(0, 0);
+
+                pointer = pointer.share(-4); // NULL-terminated
+                pointer.setInt(0, 0);
+
                 this.error.setString(0, "Resolve library " + filename + " failed");
                 return 0;
+            } else {
+                pointer = pointer.share(-4); // return value
+                pointer.setInt(0, (int) module.base);
+
+                pointer = pointer.share(-4); // NULL-terminated
+                pointer.setInt(0, 0);
+
+                for (Module m : memory.getLoadedModules()) {
+                    if (!m.getUnresolvedSymbol().isEmpty()) {
+                        continue;
+                    }
+                    for (InitFunction initFunction : m.initFunctionList) {
+                        if (initFunction.addresses != null) {
+                            for (long addr : initFunction.addresses) {
+                                if (addr != 0 && addr != -1) {
+                                    log.debug("[" + m.name + "]CallInitFunction: 0x" + Long.toHexString(addr));
+                                    pointer = pointer.share(-4); // init array
+                                    pointer.setInt(0, (int) (m.base + addr));
+                                }
+                            }
+                        }
+                    }
+                    m.initFunctionList.clear();
+                }
+
+                return (int) module.base;
             }
-            return (int) module.base;
         } catch (IOException e) {
             throw new IllegalStateException(e);
+        } finally {
+            unicorn.reg_write(ArmConst.UC_ARM_REG_SP, ((UnicornPointer) pointer).peer);
         }
     }
 

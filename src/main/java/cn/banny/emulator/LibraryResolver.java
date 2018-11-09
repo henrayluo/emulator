@@ -6,6 +6,6 @@ public interface LibraryResolver {
 
     File resolveLibrary(String soName);
 
-    File resolveFile(File workDir, String path);
+    File resolveFile(File workDir, String path, boolean create);
 
 }

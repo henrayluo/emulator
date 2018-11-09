@@ -9,6 +9,7 @@ import com.sun.jna.Pointer;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collection;
 
 public interface Memory extends IO {
 
@@ -57,4 +58,6 @@ public interface Memory extends IO {
      * set errno
      */
     void setErrno(int errno);
+
+    Collection<Module> getLoadedModules();
 }

@@ -32,6 +32,7 @@ public class McToTest extends EmulatorTest {
     public void testVM() throws Exception {
         final Memory memory = emulator.getMemory();
         memory.setCallInitFunction();
+        emulator.setWorkDir(new File("src/test/resources/example_binaries"));
 
         Module dvm = memory.load(new File("android/sdk19/lib/libdvm.so"));
         Pointer p_vm = memory.allocateStack(4);

@@ -42,6 +42,9 @@ public class LinuxSyscallHandler extends SyscallHandler {
         try {
             if (intno == 2) {
                 switch (NR) {
+                    case 2:
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, fork(emulator));
+                        return;
                     case 3:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, read(u, emulator));
                         return;
@@ -163,7 +166,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
                         u.reg_write(ArmConst.UC_ARM_REG_R0, stat64(u, emulator));
                         return;
                     case 196:
-                        u.reg_write(ArmConst.UC_ARM_REG_R0, lstat(u));
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, lstat(u, emulator));
                         return;
                     case 197:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, fstat(u, emulator));
@@ -282,6 +285,12 @@ public class LinuxSyscallHandler extends SyscallHandler {
         if (exception instanceof UnicornException) {
             throw (UnicornException) exception;
         }
+    }
+
+    private int fork(Emulator emulator) {
+        log.debug("fork");
+        emulator.getMemory().setErrno(Emulator.ENOSYS);
+        return -1;
     }
 
     private int tgkill(Unicorn u) {
@@ -435,6 +444,15 @@ public class LinuxSyscallHandler extends SyscallHandler {
         Pointer statbuf = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
         if (log.isDebugEnabled()) {
             log.debug("stat64 pathname=" + pathname.getString(0) + ", statbuf=" + statbuf);
+        }
+        return emulator.getMemory().stat64(pathname.getString(0), statbuf);
+    }
+
+    private int lstat(Unicorn u, Emulator emulator) {
+        Pointer pathname = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R0);
+        Pointer statbuf = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
+        if (log.isDebugEnabled()) {
+            log.debug("lstat pathname=" + pathname.getString(0) + ", statbuf=" + statbuf);
         }
         return emulator.getMemory().stat64(pathname.getString(0), statbuf);
     }
@@ -594,15 +612,6 @@ public class LinuxSyscallHandler extends SyscallHandler {
         }
         emulator.getMemory().setErrno(Emulator.EINVAL);
         return -1;
-    }
-
-    private int lstat(Unicorn u) {
-        Pointer pathname = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R0);
-        Pointer statbuf = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
-        if (log.isDebugEnabled()) {
-            log.debug("lstat pathname=" + pathname.getString(0) + ", statbuf=" + statbuf);
-        }
-        throw new UnsupportedOperationException();
     }
 
     private int lgetxattr(Unicorn u) {
@@ -890,15 +899,12 @@ public class LinuxSyscallHandler extends SyscallHandler {
     private int getcwd(Unicorn u, Emulator emulator) {
         UnicornPointer buf = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R0);
         int size = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R1)).intValue();
-        if (log.isDebugEnabled()) {
-            log.debug("getcwd buf=" + buf + ", size=" + size);
-        }
         File workDir = emulator.getWorkDir();
-        if (workDir == null) {
-            buf.setString(0, "/");
-        } else {
-            buf.setString(0, workDir.getAbsolutePath());
+        String path = workDir == null ? "/" : workDir.getAbsolutePath();
+        if (log.isDebugEnabled()) {
+            log.debug("getcwd buf=" + buf + ", size=" + size + ", path=" + path);
         }
+        buf.setString(0, path);
         return (int) buf.peer;
     }
 

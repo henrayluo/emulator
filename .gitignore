@@ -3,3 +3,4 @@
 /emulator.iml
 /.idea/
 /src/test/resources/unpack/*_unpacked.so
+/src/test/resources/example_binaries/data/dalvik-cache/Users*classes.dex

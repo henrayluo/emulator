@@ -19,7 +19,7 @@ public class SimpleFileIO extends AbstractFileIO implements FileIO {
 
     final File file;
     final String path;
-    private final RandomAccessFile randomAccessFile;
+    final RandomAccessFile randomAccessFile;
 
     public SimpleFileIO(int oflags, File file, String path) {
         super(oflags);
@@ -27,7 +27,11 @@ public class SimpleFileIO extends AbstractFileIO implements FileIO {
         this.path = path;
 
         try {
-            randomAccessFile = new RandomAccessFile(file, "rws");
+            if (file.isDirectory()) {
+                randomAccessFile = null;
+            } else {
+                randomAccessFile = new RandomAccessFile(file, "rws");
+            }
         } catch (FileNotFoundException e) {
             throw new IllegalStateException(e);
         }
@@ -45,8 +49,6 @@ public class SimpleFileIO extends AbstractFileIO implements FileIO {
         }
     }
 
-    private OutputStream outputStream;
-
     @Override
     public int write(byte[] data) {
         try {
@@ -55,20 +57,11 @@ public class SimpleFileIO extends AbstractFileIO implements FileIO {
                 debugStream.flush();
             }
 
-            if (outputStream == null) {
-                outputStream = createFileOutputStream(file);
-            }
-
-            outputStream.write(data);
-            outputStream.flush();
+            randomAccessFile.write(data);
             return data.length;
         } catch (IOException e) {
             throw new IllegalStateException(e);
         }
-    }
-
-    OutputStream createFileOutputStream(File file) throws FileNotFoundException {
-        return new FileOutputStream(file);
     }
 
     OutputStream debugStream;
@@ -107,18 +100,24 @@ public class SimpleFileIO extends AbstractFileIO implements FileIO {
         int st_mode;
         if (IO.STDOUT.equals(file.getName())) {
             st_mode = IO.S_IFCHR | 0x777;
+        } else if(file.isDirectory()) {
+            st_mode = IO.S_IFDIR | 0x777;
         } else {
             st_mode = 0;
         }
         /*
+         * 0x00: st_dev
          * 0x18: st_uid
          * 0x1c: st_gid
          * 0x30: st_size
          * 0x38: st_blksize
+         * 0x60: st_ino
          */
+        stat.setLong(0x0, 0); // st_dev
         stat.setInt(0x10, st_mode); // st_mode
         stat.setLong(0x30, file.length()); // st_size
-        stat.setInt(0x38, (int) ARM.alignSize(file.length(), emulator.getPageAlign())); // 0x38
+        stat.setInt(0x38, (int) ARM.alignSize(file.length(), emulator.getPageAlign())); // st_blksize
+        stat.setLong(0x60, 0); // st_ino
         return 0;
     }
 

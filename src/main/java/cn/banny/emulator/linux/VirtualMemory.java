@@ -180,6 +180,7 @@ public class VirtualMemory implements Memory {
                 } else if(forceCall) {
                     m.callInitFunction(emulator, true);
                 }
+                m.initFunctionList.clear();
             }
         }
         return module;
@@ -226,15 +227,9 @@ public class VirtualMemory implements Memory {
 
         Module module = loadInternal(file.getParentFile(), file, null);
         resolveSymbols();
-        if (callInitFunction) {
+        if (!callInitFunction) { // No need call init array
             for (Module m : modules.values()) {
-                for (InitFunction initFunction : m.initFunctionList) {
-                    List<String> list = initFunction.addressList();
-                    if (!list.isEmpty()) {
-                        log.info("[" + m.name + "]InitFunction: " + list); // note: can not call init function, may cause unicorn crash
-                        list.clear();
-                    }
-                }
+                m.initFunctionList.clear();
             }
         }
         return module;
@@ -525,7 +520,7 @@ public class VirtualMemory implements Memory {
 
     @Override
     public int stat64(String pathname, Pointer statbuf) {
-        File file = libraryResolver == null ? null : libraryResolver.resolveFile(emulator.getWorkDir(), pathname);
+        File file = libraryResolver == null ? null : libraryResolver.resolveFile(emulator.getWorkDir(), pathname, false);
         if (file != null) {
             return new SimpleFileIO(FileIO.O_RDWR, file, pathname).fstat(emulator, unicorn, statbuf);
         } else {
@@ -664,7 +659,7 @@ public class VirtualMemory implements Memory {
             return minFd;
         }
 
-        File file = libraryResolver == null ? null : libraryResolver.resolveFile(emulator.getWorkDir(), pathname);
+        File file = libraryResolver == null ? null : libraryResolver.resolveFile(emulator.getWorkDir(), pathname, (oflags & FileIO.O_CREAT) != 0);
         if (file == null) {
             setErrno(Emulator.EACCES);
             return -1;
@@ -704,5 +699,10 @@ public class VirtualMemory implements Memory {
     @Override
     public long getMaxSizeOfSo() {
         return maxSizeOfSo;
+    }
+
+    @Override
+    public Collection<Module> getLoadedModules() {
+        return modules.values();
     }
 }

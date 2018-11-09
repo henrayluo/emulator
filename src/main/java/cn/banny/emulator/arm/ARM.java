@@ -240,9 +240,13 @@ public class ARM {
     public static String assembleDetail(Memory memory, Capstone.CsInsn ins, long address, boolean thumb, char space) {
         StringBuilder sb = new StringBuilder();
         Module module = memory.findModuleByAddress(address);
+        String maxLengthSoName = memory.getMaxLengthSoName();
         if (module != null) {
-            sb.append(String.format("[%" + memory.getMaxLengthSoName().length() + "s]", module.name)).append(space);
+            sb.append(String.format("[%" + maxLengthSoName.length() + "s]", module.name)).append(space);
             sb.append(String.format("[0x%0" + Long.toHexString(memory.getMaxSizeOfSo()).length() + "x]", address - module.base + (thumb ? 1 : 0))).append(space);
+        } else if (address >= 0xfffe0000L && maxLengthSoName != null) { // kernel
+            sb.append(String.format("[%" + maxLengthSoName.length() + "s]", "0x" + Long.toHexString(address))).append(space);
+            sb.append(String.format("[0x%0" + Long.toHexString(memory.getMaxSizeOfSo()).length() + "x]", address - 0xfffe0000L + (thumb ? 1 : 0))).append(space);
         }
         sb.append("[");
         if (ins.size == 2) {

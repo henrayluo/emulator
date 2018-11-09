@@ -12,6 +12,7 @@ public interface IO {
     int FD_STDERR = 2;
 
     int S_IFREG    = 0x8000;   // regular file
+    int S_IFDIR    = 0x4000;   // directory
     int S_IFCHR    = 0x2000;   // character device
 
 }

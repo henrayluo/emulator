@@ -28,8 +28,10 @@ class RunExecutable {
             }
             if (preloads != null) {
                 for (String preload : preloads) {
-                    Module preloaded = memory.dlopen(preload);
-                    System.out.println("preloaded=" + preloaded);
+                    if (preload != null) {
+                        Module preloaded = memory.dlopen(preload);
+                        System.out.println("preloaded=" + preloaded);
+                    }
                 }
             }
 

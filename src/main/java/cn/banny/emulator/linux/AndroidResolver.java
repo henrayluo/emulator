@@ -31,7 +31,7 @@ public class AndroidResolver implements LibraryResolver {
     }
 
     @Override
-    public File resolveFile(File workDir, String path) {
+    public File resolveFile(File workDir, String path, boolean create) {
         if (IO.STDOUT.equals(path) || IO.STDERR.equals(path)) {
             try {
                 File io = new File(androidDir, "../io");
@@ -81,16 +81,28 @@ public class AndroidResolver implements LibraryResolver {
             }
         }
 
-        File file = new File(androidDir, path);
-        if (file.canRead()) {
-            return file;
-        }
-
         if (workDir != null) {
+            if (".".equals(path)) {
+                return workDir;
+            }
+
+            File file;
+            if (path.startsWith(workDir.getAbsolutePath()) && ((file = new File(path)).canRead() || create)) {
+                return file;
+            }
+
             file = new File(workDir, path);
             if (file.canRead()) {
                 return file;
             }
+            if (file.getParentFile().exists() && create) {
+                return file;
+            }
+        }
+
+        File file = new File(androidDir, path);
+        if (file.canRead()) {
+            return file;
         }
 
         return null;
