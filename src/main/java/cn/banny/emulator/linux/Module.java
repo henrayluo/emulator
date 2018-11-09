@@ -201,7 +201,7 @@ public class Module {
     @Override
     public String toString() {
         return "Module{" +
-                "base=" + base +
+                "base=0x" + Long.toHexString(base) +
                 ", size=" + size +
                 ", path='" + path + '\'' +
                 ", name='" + name + '\'' +

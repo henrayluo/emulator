@@ -14,7 +14,7 @@ import java.io.IOException;
 
 class RunExecutable {
 
-    static void run(File executable, ModuleListener listener, Object...args) throws IOException {
+    static void run(File executable, ModuleListener listener, String[] preloads, Object...args) throws IOException {
         final Emulator emulator = new AndroidARMEmulator(executable.getName());
         try {
             long start = System.currentTimeMillis();
@@ -25,6 +25,13 @@ class RunExecutable {
             if (listener != null) {
                 memory.setModuleListener(listener);
             }
+            if (preloads != null) {
+                for (String preload : preloads) {
+                    Module preloaded = memory.dlopen(preload);
+                    System.out.println("preloaded=" + preloaded);
+                }
+            }
+
             Module module = emulator.loadLibrary(executable);
             Module libc = module.getDependencyModule("libc");
             ElfSymbol environ = libc.getELFSymbolByName("environ");
@@ -50,6 +57,10 @@ class RunExecutable {
         } finally {
             IOUtils.closeQuietly(emulator);
         }
+    }
+
+    static void run(File executable, ModuleListener listener, Object...args) throws IOException {
+        run(executable, listener, null, args);
     }
 
 }

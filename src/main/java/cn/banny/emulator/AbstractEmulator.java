@@ -1,5 +1,7 @@
 package cn.banny.emulator;
 
+import cn.banny.emulator.arm.ARM;
+import cn.banny.emulator.arm.ARMEmulator;
 import cn.banny.emulator.debugger.Debugger;
 import cn.banny.emulator.debugger.SimpleDebugger;
 import cn.banny.emulator.dlfcn.Implementation;
@@ -43,7 +45,21 @@ public abstract class AbstractEmulator implements Emulator {
         super();
         this.unicorn = new Unicorn(unicorn_arch, unicorn_mode);
         this.processName = processName == null ? "emulator" : processName;
-        switchUserMode();
+        if (log.isDebugEnabled()) {
+            unicorn.reg_write(ArmConst.UC_ARM_REG_FP, 0x1);
+            unicorn.reg_write(ArmConst.UC_ARM_REG_IP, 0x2);
+            unicorn.reg_write(ArmConst.UC_ARM_REG_SP, 0x3);
+            unicorn.reg_write(ArmConst.UC_ARM_REG_LR, 0x4);
+            unicorn.reg_write(ArmConst.UC_ARM_REG_PC, 0x5);
+            ARM.showRegs(unicorn, null);
+        }
+        switchMode(ARMEmulator.USR_MODE);
+        if (log.isDebugEnabled()) {
+            ARM.showRegs(unicorn, null);
+            switchMode(ARMEmulator.SVC_MODE);
+            ARM.showRegs(unicorn, null);
+            switchMode(ARMEmulator.USR_MODE);
+        }
 
         unicorn.hook_add(new EventMemHook() {
             @Override
@@ -67,10 +83,10 @@ public abstract class AbstractEmulator implements Emulator {
         this.pid = Integer.parseInt(pid);
     }
 
-    private void switchUserMode() {
+    private void switchMode(int mode) {
         int value = ((Number) unicorn.reg_read(UC_ARM_REG_CPSR)).intValue();
-        value &= 0x7ffffff0;
-        unicorn.reg_write(UC_ARM_REG_CPSR, value);
+        value &= ~0x1F;
+        unicorn.reg_write(UC_ARM_REG_CPSR, value | mode);
     }
 
     private Debugger debugger;
@@ -149,9 +165,6 @@ public abstract class AbstractEmulator implements Emulator {
      */
     protected final Number emulate(long begin, long until, long timeout, boolean entry, Alt... alts) {
         try {
-            long context = unicorn.context_alloc();
-            unicorn.context_save(context);
-
             if (entry) {
                 if (traceMemoryRead) {
                     traceMemoryRead = false;
@@ -167,13 +180,8 @@ public abstract class AbstractEmulator implements Emulator {
                     unicorn.hook_add(codeHook, traceInstructionBegin, traceInstructionEnd, null);
                 }
             }
-
             unicorn.emu_start(begin, until, timeout, (long) 0);
-
-            Number r0 = (Number) unicorn.reg_read(ArmConst.UC_ARM_REG_R0);
-            unicorn.context_restore(context);
-            unicorn.free(context);
-            return r0;
+            return (Number) unicorn.reg_read(ArmConst.UC_ARM_REG_R0);
         } catch (RuntimeException e) {
             e.printStackTrace();
             attach().debug(this);

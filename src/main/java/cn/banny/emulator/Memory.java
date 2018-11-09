@@ -34,6 +34,7 @@ public interface Memory extends IO {
     Module findModuleByAddress(long address);
 
     Module dlopen(String filename) throws IOException;
+    Module dlopen(String filename, boolean calInit) throws IOException;
     boolean dlclose(long handle);
     Symbol dlsym(long handle, String symbol) throws IOException;
 

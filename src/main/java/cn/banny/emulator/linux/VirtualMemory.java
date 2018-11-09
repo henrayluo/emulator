@@ -208,16 +208,22 @@ public class VirtualMemory implements Memory {
         moduleListener = listener;
     }
 
-    /**
-     * dlopen调用init_array会崩溃
-     */
     @Override
-    public Module dlopen(String filename) throws IOException {
+    public Module dlopen(String filename, boolean calInit) throws IOException {
+        Module loaded = modules.get(filename);
+        if (loaded != null) {
+            return loaded;
+        }
+
         File file = libraryResolver == null ? null : libraryResolver.resolveLibrary(filename);
         if (file == null) {
             return null;
         }
-        // return load(file);
+
+        if (calInit) {
+            return load(file);
+        }
+
         Module module = loadInternal(file.getParentFile(), file, null);
         resolveSymbols();
         if (callInitFunction) {
@@ -225,13 +231,21 @@ public class VirtualMemory implements Memory {
                 for (InitFunction initFunction : m.initFunctionList) {
                     List<String> list = initFunction.addressList();
                     if (!list.isEmpty()) {
-                        log.info("[" + m.name + "]InitFunction: " + list);
+                        log.info("[" + m.name + "]InitFunction: " + list); // note: can not call init function, may cause unicorn crash
                         list.clear();
                     }
                 }
             }
         }
         return module;
+    }
+
+    /**
+     * dlopen调用init_array会崩溃
+     */
+    @Override
+    public Module dlopen(String filename) throws IOException {
+        return dlopen(filename, true);
     }
 
     @Override

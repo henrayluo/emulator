@@ -111,9 +111,9 @@ public class Implementation implements Dlfcn {
     @Override
     public int dlopen(Memory memory, String filename, int flags) {
         try {
-            Module module = memory.dlopen(filename);
+            Module module = memory.dlopen(filename, false);
             if (module == null) {
-                this.error.setString(0, "Find " + filename + " failed");
+                this.error.setString(0, "Resolve library " + filename + " failed");
                 return 0;
             }
             return (int) module.base;

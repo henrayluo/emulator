@@ -2,7 +2,6 @@ package cn.banny.emulator;
 
 import cn.banny.emulator.debugger.Debugger;
 import cn.banny.emulator.linux.Module;
-import cn.banny.emulator.pointer.UnicornPointer;
 import unicorn.Unicorn;
 
 import java.io.Closeable;
@@ -40,6 +39,7 @@ public interface Emulator extends Closeable, Disassembler {
 
     /**
      * trace instruction
+     * note: low performance
      */
     void traceCode();
     void traceCode(long begin, long end);
@@ -80,6 +80,9 @@ public interface Emulator extends Closeable, Disassembler {
 
     String getProcessName();
 
+    /**
+     * note: low performance
+     */
     Debugger attach();
 
 }

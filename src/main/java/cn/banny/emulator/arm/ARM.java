@@ -36,7 +36,7 @@ public class ARM {
         showRegs(unicorn, ARM.THUMB_REGS);
     }
 
-    static void showRegs(Unicorn unicorn, int[] regs) {
+    public static void showRegs(Unicorn unicorn, int[] regs) {
         if (regs == null || regs.length < 1) {
             regs = ARM.getAllRegisters(isThumb(unicorn));
         }
@@ -49,7 +49,7 @@ public class ARM {
                 case ArmConst.UC_ARM_REG_CPSR:
                     number = (Number) unicorn.reg_read(ArmConst.UC_ARM_REG_CPSR);
                     value = number.intValue();
-                    builder.append(String.format(Locale.US, " cpsr: N=%d, Z=%d, C=%d, V=%d, T=%d, mode=",
+                    builder.append(String.format(Locale.US, " cpsr: N=%d, Z=%d, C=%d, V=%d, T=%d, mode=0b",
                             getBit(value, 31),
                             getBit(value, 30),
                             getBit(value, 29),
