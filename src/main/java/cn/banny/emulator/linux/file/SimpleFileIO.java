@@ -19,7 +19,7 @@ public class SimpleFileIO extends AbstractFileIO implements FileIO {
 
     final File file;
     final String path;
-    final RandomAccessFile randomAccessFile;
+    private final RandomAccessFile randomAccessFile;
 
     public SimpleFileIO(int oflags, File file, String path) {
         super(oflags);
@@ -31,10 +31,14 @@ public class SimpleFileIO extends AbstractFileIO implements FileIO {
                 randomAccessFile = null;
             } else {
                 randomAccessFile = new RandomAccessFile(file, "rws");
+                onCreate(randomAccessFile);
             }
-        } catch (FileNotFoundException e) {
+        } catch (IOException e) {
             throw new IllegalStateException(e);
         }
+    }
+
+    void onCreate(RandomAccessFile randomAccessFile) throws IOException {
     }
 
     @Override

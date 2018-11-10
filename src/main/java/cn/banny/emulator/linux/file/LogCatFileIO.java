@@ -45,14 +45,13 @@ public class LogCatFileIO extends SimpleFileIO {
         if (log.isDebugEnabled()) {
             setDebugStream(System.out);
         }
+    }
 
-        try {
-            if (randomAccessFile != null) {
-                randomAccessFile.getChannel().truncate(0);
-            }
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
-        }
+    @Override
+    void onCreate(RandomAccessFile randomAccessFile) throws IOException {
+        super.onCreate(randomAccessFile);
+
+        randomAccessFile.getChannel().truncate(0);
     }
 
     private final ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();

@@ -17,7 +17,7 @@ public class DalvikVMTest implements ModuleListener {
     @Override
     public void onLoaded(Emulator emulator, Module module) {
         /*if ("libnativehelper.so".equals(module.name)) {
-            emulator.attach().addBreakPoint(null, 0xfffe0128);
+            emulator.attach().addBreakPoint(null, 0xfffe0138);
         }*/
     }
 

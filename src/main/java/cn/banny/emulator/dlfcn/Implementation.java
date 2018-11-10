@@ -68,19 +68,15 @@ public class Implementation implements Dlfcn {
         base += dlclose.length;
 
         byte[] dlopen = new byte[] {
-                (byte) 0x04, (byte) 0xe0, (byte) 0x2d, (byte) 0xe5, // push {lr}
-                (byte) 0x04, (byte) 0x70, (byte) 0x2d, (byte) 0xe5, // push {r7}
+                (byte) 0xf0, (byte) 0x40, (byte) 0x2d, (byte) 0xe9, // push {r4, r5, r6, r7, lr}
                 (byte) 0xf3, (byte) 0x7a, (byte) 0xa0, (byte) 0xe3, // mov r7, #0xf3000
                 (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xef, // svc 0
-                (byte) 0x04, (byte) 0x70, (byte) 0x9d, (byte) 0xe4, // pop {r7} ; manipulate stack in dlopen
+                (byte) 0x04, (byte) 0x70, (byte) 0x9d, (byte) 0xe4, // pop {r7} ; manipulated stack in dlopen
                 (byte) 0x00, (byte) 0x00, (byte) 0x57, (byte) 0xe3, // cmp r7, #0
-                (byte) 0x37, (byte) 0xff, (byte) 0x2f, (byte) 0x11, // blxne r7 ; call init array
-                (byte) 0x00, (byte) 0x00, (byte) 0x57, (byte) 0xe3, // cmp r7, #0
-                (byte) 0xfa, (byte) 0xff, (byte) 0xff, (byte) 0x1a, // bne #-24
+                (byte) 0x10, (byte) 0xe0, (byte) 0x4f, (byte) 0x12, // subne lr, pc, #16
+                (byte) 0x17, (byte) 0xff, (byte) 0x2f, (byte) 0x11, // bxne r7 ; call init array
                 (byte) 0x04, (byte) 0x00, (byte) 0x9d, (byte) 0xe4, // pop {r0} ; return address
-                (byte) 0x04, (byte) 0x70, (byte) 0x9d, (byte) 0xe4, // pop {r7}
-                (byte) 0x04, (byte) 0xe0, (byte) 0x9d, (byte) 0xe4, // pop {lr}
-                (byte) 0x1e, (byte) 0xff, (byte) 0x2f, (byte) 0xe1, // bx lr
+                (byte) 0xf0, (byte) 0x80, (byte) 0xbd, (byte) 0xe8, // pop {r4, r5, r6, r7, pc}
         };
         this.dlopen = base;
         unicorn.mem_write(this.dlopen, dlopen);
@@ -158,7 +154,7 @@ public class Implementation implements Dlfcn {
                         if (initFunction.addresses != null) {
                             for (long addr : initFunction.addresses) {
                                 if (addr != 0 && addr != -1) {
-                                    log.debug("[" + m.name + "]CallInitFunction: 0x" + Long.toHexString(addr));
+                                    log.debug("[" + m.name + "]PushInitFunction: 0x" + Long.toHexString(addr));
                                     pointer = pointer.share(-4); // init array
                                     pointer.setInt(0, (int) (m.base + addr));
                                 }
