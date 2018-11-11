@@ -1,8 +1,12 @@
 package cn.banny.emulator;
 
 import cn.banny.emulator.pointer.UnicornPointer;
+import cn.banny.emulator.svc.Svc;
 import unicorn.Unicorn;
 import unicorn.UnicornConst;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class SvcMemory {
 
@@ -20,6 +24,20 @@ public class SvcMemory {
         UnicornPointer pointer = base.share(0, size);
         base = (UnicornPointer) base.share(size);
         return pointer;
+    }
+
+    private int svcNumber = 1;
+
+    private final Map<Integer, Svc> svcMap = new HashMap<>();
+
+    public Svc getSvc(int svcNumber) {
+        return svcMap.get(svcNumber);
+    }
+
+    public UnicornPointer registerSvc(Svc svc) {
+        int number = svcNumber++;
+        svcMap.put(number, svc);
+        return svc.onRegister(this, number);
     }
 
 }

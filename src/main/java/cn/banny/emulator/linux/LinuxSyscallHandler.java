@@ -2,11 +2,13 @@ package cn.banny.emulator.linux;
 
 import cn.banny.auxiliary.Inspector;
 import cn.banny.emulator.Emulator;
+import cn.banny.emulator.SvcMemory;
 import cn.banny.emulator.SyscallHandler;
 import cn.banny.emulator.arm.ARM;
 import cn.banny.emulator.dlfcn.Dlfcn;
 import cn.banny.emulator.linux.file.*;
 import cn.banny.emulator.pointer.UnicornPointer;
+import cn.banny.emulator.svc.Svc;
 import com.sun.jna.Pointer;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -24,8 +26,12 @@ public class LinuxSyscallHandler extends SyscallHandler {
 
     private static final Log log = LogFactory.getLog(LinuxSyscallHandler.class);
 
-    public LinuxSyscallHandler(Dlfcn dlfcn) {
+    private final SvcMemory svcMemory;
+
+    public LinuxSyscallHandler(Dlfcn dlfcn, SvcMemory svcMemory) {
         super(dlfcn);
+
+        this.svcMemory = svcMemory;
     }
 
     @Override
@@ -44,6 +50,11 @@ public class LinuxSyscallHandler extends SyscallHandler {
             svcNumber = pc.getInt(-4) & 0xffffff;
         }
         if (svcNumber != 0) {
+            Svc svc = svcMemory.getSvc(svcNumber);
+            if (svc != null) {
+                u.reg_write(ArmConst.UC_ARM_REG_R0, svc.handle(u, emulator));
+                return;
+            }
             u.emu_stop();
             throw new IllegalStateException("svc number: " + svcNumber);
         }
@@ -247,39 +258,6 @@ public class LinuxSyscallHandler extends SyscallHandler {
                     case 295:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, getsockopt(u, emulator));
                         return;
-                    case Dlfcn.__NR_dlopen:
-                        Pointer filename = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R0);
-                        int flags = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R1)).intValue();
-                        if (log.isDebugEnabled()) {
-                            log.debug("dlopen filename=" + filename.getString(0) + ", flags=" + flags);
-                        }
-                        u.reg_write(ArmConst.UC_ARM_REG_R0, dlfcn.dlopen(emulator.getMemory(), filename.getString(0), flags));
-                        return;
-                    case Dlfcn.__NR_dlerror:
-                        u.reg_write(ArmConst.UC_ARM_REG_R0, dlfcn.dlerror());
-                        return;
-                    case Dlfcn.__NR_dlsym:
-                        long handle = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue() & 0xffffffffL;
-                        Pointer symbol = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
-                        if (log.isDebugEnabled()) {
-                            log.debug("dlsym handle=0x" + Long.toHexString(handle) + ", symbol=" + symbol.getString(0));
-                        }
-                        u.reg_write(ArmConst.UC_ARM_REG_R0, dlfcn.dlsym(emulator.getMemory(), handle, symbol.getString(0)));
-                        return;
-                    case Dlfcn.__NR_dlclose:
-                        handle = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue() & 0xffffffffL;
-                        if (log.isDebugEnabled()) {
-                            log.debug("dlclose handle=0x" + Long.toHexString(handle));
-                        }
-                        u.reg_write(ArmConst.UC_ARM_REG_R0, dlfcn.dlclose(emulator.getMemory(), handle));
-                        return;
-                    case Dlfcn.__NR_dladdr:
-                        long addr = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue() & 0xffffffffL;
-                        Pointer info = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
-                        if (log.isDebugEnabled()) {
-                            log.debug("dladdr addr=0x" + Long.toHexString(addr) + ", info=" + info);
-                        }
-                        break;
                 }
             }
         } catch (UnsupportedOperationException e) {
