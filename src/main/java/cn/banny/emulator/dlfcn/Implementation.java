@@ -71,12 +71,11 @@ public class Implementation implements Dlfcn {
                 (byte) 0xf0, (byte) 0x40, (byte) 0x2d, (byte) 0xe9, // push {r4, r5, r6, r7, lr}
                 (byte) 0xf3, (byte) 0x7a, (byte) 0xa0, (byte) 0xe3, // mov r7, #0xf3000
                 (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xef, // svc 0
-                (byte) 0x04, (byte) 0x70, (byte) 0x9d, (byte) 0xe4, // pop {r7} ; manipulated stack in dlopen
-                (byte) 0x00, (byte) 0x00, (byte) 0x57, (byte) 0xe3, // cmp r7, #0
+                (byte) 0x04, (byte) 0x70, (byte) 0x9d, (byte) 0xe4, // pop {r0} ; manipulated stack in dlopen
+                (byte) 0x00, (byte) 0x00, (byte) 0x57, (byte) 0xe3, // cmp r0, #0
                 (byte) 0x10, (byte) 0xe0, (byte) 0x4f, (byte) 0x12, // subne lr, pc, #16
-                (byte) 0x17, (byte) 0xff, (byte) 0x2f, (byte) 0x11, // bxne r7 ; call init array
-                (byte) 0x04, (byte) 0x00, (byte) 0x9d, (byte) 0xe4, // pop {r0} ; return address
-                (byte) 0xf0, (byte) 0x80, (byte) 0xbd, (byte) 0xe8, // pop {r4, r5, r6, r7, pc}
+                (byte) 0x17, (byte) 0xff, (byte) 0x2f, (byte) 0x11, // bxne r0 ; call init array
+                (byte) 0xf1, (byte) 0x80, (byte) 0xbd, (byte) 0xe8, // pop {r0, r4, r5, r6, r7, pc} ; with return address
         };
         this.dlopen = base;
         unicorn.mem_write(this.dlopen, dlopen);
