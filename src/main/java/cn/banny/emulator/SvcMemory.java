@@ -1,7 +1,9 @@
 package cn.banny.emulator;
 
 import cn.banny.emulator.pointer.UnicornPointer;
+import cn.banny.emulator.svc.ArmSvc;
 import cn.banny.emulator.svc.Svc;
+import cn.banny.emulator.svc.ThumbSvc;
 import unicorn.Unicorn;
 import unicorn.UnicornConst;
 
@@ -26,7 +28,8 @@ public class SvcMemory {
         return pointer;
     }
 
-    private int svcNumber = 1;
+    private int thumbSvcNumber = 0;
+    private int armSvcNumber = 0xff;
 
     private final Map<Integer, Svc> svcMap = new HashMap<>();
 
@@ -35,8 +38,17 @@ public class SvcMemory {
     }
 
     public UnicornPointer registerSvc(Svc svc) {
-        int number = svcNumber++;
-        svcMap.put(number, svc);
+        final int number;
+        if (svc instanceof ThumbSvc) {
+            number = ++thumbSvcNumber;
+        } else if (svc instanceof ArmSvc) {
+            number = ++armSvcNumber;
+        } else {
+            throw new IllegalStateException();
+        }
+        if (svcMap.put(number, svc) != null) {
+            throw new IllegalStateException();
+        }
         return svc.onRegister(this, number);
     }
 
