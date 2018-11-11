@@ -33,10 +33,11 @@ public class WeChatTest implements ModuleListener {
         emulator.setWorkDir(elfFile.getParentFile());
         Module module = emulator.loadLibrary(elfFile, true);
 
-        Debugger debugger = emulator.attach();
-        debugger.addBreakPoint(module, 0x00040EEC);
+        /*Debugger debugger = emulator.attach();
+        debugger.addBreakPoint(module, 0x00040EEC);*/
         // debugger.addBreakPoint(null, 0xffff0fdc);
-        // emulator.traceCode(module.base, module.base + module.size);
+        emulator.traceCode(module.base, module.base + module.size);
+        module.callFunction(emulator, "JNI_OnLoad", null, null);
         Number ret = module.callFunction(emulator, 0x40da8 + 1, null, null, 0, 0, 0)[0];
         System.out.println("ret=0x" + (ret.intValue() & 0xffffffffL));
     }

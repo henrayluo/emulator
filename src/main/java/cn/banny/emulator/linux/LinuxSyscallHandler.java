@@ -36,6 +36,18 @@ public class LinuxSyscallHandler extends SyscallHandler {
             ARM.showThumbRegs(u);
         }
 
+        Pointer pc = UnicornPointer.register(u, ArmConst.UC_ARM_REG_PC);
+        final int svcNumber;
+        if (ARM.isThumb(u)) {
+            svcNumber = pc.getShort(-2) & 0xff;
+        } else {
+            svcNumber = pc.getInt(-4) & 0xffffff;
+        }
+        if (svcNumber != 0) {
+            u.emu_stop();
+            throw new IllegalStateException("svc number: " + svcNumber);
+        }
+
         int NR = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R7)).intValue();
         String syscall = null;
         Throwable exception = null;
@@ -278,8 +290,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
         }
 
         if (log.isDebugEnabled()) {
-            int pc = ((Number) u.reg_read(ArmConst.UC_ARM_REG_PC)).intValue();
-            log.warn("handleInterrupt intno=" + intno + ", NR=" + NR + ", PC=0x" + Integer.toHexString(pc) + ", syscall=" + syscall, exception);
+            log.warn("handleInterrupt intno=" + intno + ", NR=" + NR + ", PC=" + pc + ", syscall=" + syscall, exception);
         }
 
         if (exception instanceof UnicornException) {

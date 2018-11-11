@@ -1,5 +1,6 @@
 package cn.banny.emulator.pointer;
 
+import cn.banny.emulator.InvalidMemoryAccessException;
 import com.sun.jna.NativeLong;
 import com.sun.jna.Pointer;
 import com.sun.jna.WString;
@@ -22,6 +23,16 @@ public class UnicornPointer extends Pointer {
 
         this.unicorn = unicorn;
         this.peer = peer;
+    }
+
+    private long size;
+
+    public UnicornPointer setSize(long size) {
+        if (size < 0) {
+            throw new IllegalArgumentException("size=" + size);
+        }
+        this.size = size;
+        return this;
     }
 
     public static UnicornPointer pointer(Unicorn unicorn, long addr) {
@@ -84,6 +95,16 @@ public class UnicornPointer extends Pointer {
 
     @Override
     public void write(long offset, byte[] buf, int index, int length) {
+        if (size > 0) {
+            if (offset < 0) {
+                throw new IllegalArgumentException();
+            }
+
+            if (size - offset < length) {
+                throw new InvalidMemoryAccessException();
+            }
+        }
+
         if (index == 0 && buf.length == length) {
             unicorn.mem_write(peer + offset, buf);
         } else {
@@ -226,32 +247,32 @@ public class UnicornPointer extends Pointer {
     public void setMemory(long offset, long length, byte value) {
         byte[] data = new byte[(int) length];
         Arrays.fill(data, value);
-        unicorn.mem_write(peer + offset, data);
+        write(offset, data, 0, data.length);
     }
 
     @Override
     public void setByte(long offset, byte value) {
-        unicorn.mem_write(peer + offset, new byte[] { value });
+        write(offset, new byte[] { value }, 0, 1);
     }
 
     @Override
     public void setShort(long offset, short value) {
-        unicorn.mem_write(peer + offset, allocateBuffer(2).putShort(value).array());
+        write(offset, allocateBuffer(2).putShort(value).array(), 0, 2);
     }
 
     @Override
     public void setChar(long offset, char value) {
-        unicorn.mem_write(peer + offset, allocateBuffer(2).putChar(value).array());
+        write(offset, allocateBuffer(2).putChar(value).array(), 0, 2);
     }
 
     @Override
     public void setInt(long offset, int value) {
-        unicorn.mem_write(peer + offset, allocateBuffer(4).putInt(value).array());
+        write(offset, allocateBuffer(4).putInt(value).array(), 0, 4);
     }
 
     @Override
     public void setLong(long offset, long value) {
-        unicorn.mem_write(peer + offset, allocateBuffer(8).putLong(value).array());
+        write(offset, allocateBuffer(8).putLong(value).array(), 0, 8);
     }
 
     @Override
@@ -261,12 +282,12 @@ public class UnicornPointer extends Pointer {
 
     @Override
     public void setFloat(long offset, float value) {
-        unicorn.mem_write(peer + offset, allocateBuffer(4).putFloat(value).array());
+        write(offset, allocateBuffer(4).putFloat(value).array(), 0, 4);
     }
 
     @Override
     public void setDouble(long offset, double value) {
-        unicorn.mem_write(peer + offset, allocateBuffer(8).putDouble(value).array());
+        write(offset, allocateBuffer(8).putDouble(value).array(), 0, 8);
     }
 
     @Override
@@ -299,16 +320,32 @@ public class UnicornPointer extends Pointer {
             byte[] data = value.getBytes(encoding);
             write(offset, Arrays.copyOf(data, data.length + 1), 0, data.length + 1);
         } catch (UnsupportedEncodingException e) {
-            throw new IllegalStateException(e);
+            throw new IllegalArgumentException(e);
         }
     }
 
     @Override
     public UnicornPointer share(long offset, long sz) {
-        if (offset == 0L) {
+        if (offset == 0L && sz == size) {
             return this;
         }
-        return new UnicornPointer(unicorn, peer + offset);
+
+        UnicornPointer pointer = new UnicornPointer(unicorn, peer + offset);
+        if (size > 0) {
+            if (offset < 0) {
+                throw new IllegalArgumentException();
+            }
+
+            if (offset >= size) {
+                throw new InvalidMemoryAccessException();
+            }
+
+            long newSize = size - offset;
+            pointer.setSize(sz > 0 && sz < newSize ? sz : newSize);
+        } else {
+            pointer.setSize(sz);
+        }
+        return pointer;
     }
 
     @Override

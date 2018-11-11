@@ -60,7 +60,9 @@ public class VirtualMemory implements Memory {
     @Override
     public UnicornPointer allocateStack(int size) {
         setStackPoint(sp - size);
-        return UnicornPointer.pointer(unicorn, sp);
+        UnicornPointer pointer = UnicornPointer.pointer(unicorn, sp);
+        assert pointer != null;
+        return pointer.setSize(size);
     }
 
     @Override

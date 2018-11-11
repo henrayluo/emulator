@@ -1,6 +1,7 @@
 package cn.banny.emulator.dlfcn;
 
 import cn.banny.emulator.Memory;
+import cn.banny.emulator.SvcMemory;
 import cn.banny.emulator.linux.InitFunction;
 import cn.banny.emulator.linux.Module;
 import cn.banny.emulator.linux.Symbol;
@@ -10,40 +11,28 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import unicorn.ArmConst;
 import unicorn.Unicorn;
-import unicorn.UnicornConst;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
 public class Implementation implements Dlfcn {
 
     private static final Log log = LogFactory.getLog(Implementation.class);
 
     private final UnicornPointer error;
-    private final long dlerror;
-    private final long dlclose;
-    private final long dlopen;
-    private final long dladdr;
-    private final long dlsym;
+    private final UnicornPointer dlerror;
+    private final UnicornPointer dlclose;
+    private final UnicornPointer dlopen;
+    private final UnicornPointer dladdr;
+    private final UnicornPointer dlsym;
 
     private Unicorn unicorn;
 
-    public Implementation(Unicorn unicorn) {
+    public Implementation(Unicorn unicorn, SvcMemory svcMemory) {
         this.unicorn = unicorn;
 
-        long base = 0xfffe0000L;
-        unicorn.mem_map(base, 0x10000, UnicornConst.UC_PROT_READ | UnicornConst.UC_PROT_EXEC);
-        byte[] b0 = new byte[] { 0x00, (byte) 0xf0, (byte) 0xa0, (byte) 0xe3 }; // mov pc, #0
-        ByteBuffer buffer = ByteBuffer.allocate(0x10000);
-        for (int i = 0; i < 0x10000; i += 4) {
-            buffer.put(b0);
-        }
-        unicorn.mem_write(base, buffer.array());
-
-        error = UnicornPointer.pointer(unicorn, base);
+        error = svcMemory.allocate(0x40);
         assert error != null;
-        error.setMemory(0, 0x100, (byte) 0);
-        base += 0x100;
+        error.setMemory(0, 0x40, (byte) 0);
 
         byte[] dlerror = new byte[] {
                 (byte) 0x07, (byte) 0xc0, (byte) 0xa0, (byte) 0xe1, // mov r12, r7
@@ -52,9 +41,8 @@ public class Implementation implements Dlfcn {
                 (byte) 0x0c, (byte) 0x70, (byte) 0xa0, (byte) 0xe1, // mov r7, r12
                 (byte) 0x1e, (byte) 0xff, (byte) 0x2f, (byte) 0xe1, // bx lr
         };
-        this.dlerror = base;
-        unicorn.mem_write(this.dlerror, dlerror);
-        base += dlerror.length;
+        this.dlerror = svcMemory.allocate(dlerror.length);
+        this.dlerror.write(0, dlerror, 0, dlerror.length);
 
         byte[] dlclose = new byte[] {
                 (byte) 0x07, (byte) 0xc0, (byte) 0xa0, (byte) 0xe1, // mov r12, r7
@@ -63,9 +51,8 @@ public class Implementation implements Dlfcn {
                 (byte) 0x0c, (byte) 0x70, (byte) 0xa0, (byte) 0xe1, // mov r7, r12
                 (byte) 0x1e, (byte) 0xff, (byte) 0x2f, (byte) 0xe1, // bx lr
         };
-        this.dlclose = base;
-        unicorn.mem_write(this.dlclose, dlclose);
-        base += dlclose.length;
+        this.dlclose = svcMemory.allocate(dlclose.length);
+        this.dlclose.write(0, dlclose, 0, dlclose.length);
 
         byte[] dlopen = new byte[] {
                 (byte) 0xf0, (byte) 0x40, (byte) 0x2d, (byte) 0xe9, // push {r4, r5, r6, r7, lr}
@@ -77,9 +64,8 @@ public class Implementation implements Dlfcn {
                 (byte) 0x17, (byte) 0xff, (byte) 0x2f, (byte) 0x11, // bxne r0 ; call init array
                 (byte) 0xf1, (byte) 0x80, (byte) 0xbd, (byte) 0xe8, // pop {r0, r4, r5, r6, r7, pc} ; with return address
         };
-        this.dlopen = base;
-        unicorn.mem_write(this.dlopen, dlopen);
-        base += dlopen.length;
+        this.dlopen = svcMemory.allocate(dlopen.length);
+        this.dlopen.write(0, dlopen, 0, dlopen.length);
 
         byte[] dladdr = new byte[] {
                 (byte) 0x07, (byte) 0xc0, (byte) 0xa0, (byte) 0xe1, // mov r12, r7
@@ -88,9 +74,8 @@ public class Implementation implements Dlfcn {
                 (byte) 0x0c, (byte) 0x70, (byte) 0xa0, (byte) 0xe1, // mov r7, r12
                 (byte) 0x1e, (byte) 0xff, (byte) 0x2f, (byte) 0xe1, // bx lr
         };
-        this.dladdr = base;
-        unicorn.mem_write(this.dladdr, dladdr);
-        base += dladdr.length;
+        this.dladdr = svcMemory.allocate(dladdr.length);
+        this.dladdr.write(0, dladdr, 0, dladdr.length);
 
         byte[] dlsym = new byte[] {
                 (byte) 0x07, (byte) 0xc0, (byte) 0xa0, (byte) 0xe1, // mov r12, r7
@@ -99,10 +84,10 @@ public class Implementation implements Dlfcn {
                 (byte) 0x0c, (byte) 0x70, (byte) 0xa0, (byte) 0xe1, // mov r7, r12
                 (byte) 0x1e, (byte) 0xff, (byte) 0x2f, (byte) 0xe1, // bx lr
         };
-        this.dlsym = base;
-        unicorn.mem_write(this.dlsym, dlsym);
+        this.dlsym = svcMemory.allocate(dlsym.length);
+        this.dlsym.write(0, dlsym, 0, dlsym.length);
 
-        log.debug("dlopen=0x" + Long.toHexString(this.dlopen) + ", dlsym=0x" + Long.toHexString(this.dlsym));
+        log.debug("dlopen=" + this.dlopen + ", dlsym=" + this.dlsym);
     }
 
     @Override
@@ -110,15 +95,15 @@ public class Implementation implements Dlfcn {
         if ("libdl.so".equals(soName)) {
             switch (symbol) {
                 case "dlerror":
-                    return dlerror;
+                    return dlerror.peer;
                 case "dlclose":
-                    return dlclose;
+                    return dlclose.peer;
                 case "dlopen":
-                    return dlopen;
+                    return dlopen.peer;
                 case "dladdr":
-                    return dladdr;
+                    return dladdr.peer;
                 case "dlsym":
-                    return dlsym;
+                    return dlsym.peer;
             }
         }
         return 0;
