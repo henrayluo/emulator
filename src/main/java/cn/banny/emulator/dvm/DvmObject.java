@@ -1,13 +1,16 @@
 package cn.banny.emulator.dvm;
 
-class DvmObject {
+public class DvmObject {
 
     final DvmClass objectType;
-    final Object value;
+    private final Object value;
 
-    DvmObject(DvmClass objectType, Object value) {
+    public DvmObject(DvmClass objectType, Object value) {
         this.objectType = objectType;
         this.value = value;
     }
 
+    public Object getValue() {
+        return value;
+    }
 }

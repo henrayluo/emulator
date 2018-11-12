@@ -259,6 +259,12 @@ public class LinuxSyscallHandler extends SyscallHandler {
                     case 295:
                         u.reg_write(ArmConst.UC_ARM_REG_R0, getsockopt(u, emulator));
                         return;
+                    case 322:
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, openat(u, emulator));
+                        return;
+                    case 334:
+                        u.reg_write(ArmConst.UC_ARM_REG_R0, faccessat(u, emulator));
+                        return;
                 }
             }
         } catch (UnsupportedOperationException e) {
@@ -1122,6 +1128,32 @@ public class LinuxSyscallHandler extends SyscallHandler {
             Inspector.inspect(after, "gettimeofday tz after");
         }
         return 0;
+    }
+
+    private int faccessat(Unicorn u, Emulator emulator) {
+        int dirfd = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue();
+        Pointer pathname_p = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
+        int oflags = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R2)).intValue();
+        int mode = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R3)).intValue();
+        String pathname = pathname_p.getString(0);
+        if (log.isDebugEnabled()) {
+            log.debug("faccessat dirfd=" + dirfd + ", pathname=" + pathname + ", oflags=0x" + Integer.toHexString(oflags) + ", mode=" + Integer.toHexString(mode));
+        }
+        emulator.getMemory().setErrno(Emulator.EACCES);
+        return -1;
+    }
+
+    private int openat(Unicorn u, Emulator emulator) {
+        int dirfd = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R0)).intValue();
+        Pointer pathname_p = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
+        int oflags = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R2)).intValue();
+        int mode = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R3)).intValue();
+        String pathname = pathname_p.getString(0);
+        int fd = emulator.getMemory().open(pathname, oflags);
+        if (log.isDebugEnabled()) {
+            log.debug("openat dirfd=" + dirfd + ", pathname=" + pathname + ", oflags=0x" + Integer.toHexString(oflags) + ", mode=" + Integer.toHexString(mode) + ", fd=" + fd);
+        }
+        return fd;
     }
 
     private int open(Unicorn u, Emulator emulator) {

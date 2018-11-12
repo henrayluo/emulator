@@ -22,8 +22,11 @@ public class DalvikVM implements VM {
 
     private final UnicornPointer _JavaVM;
     private final UnicornPointer _JNIEnv;
+    final Jni jni;
 
-    public DalvikVM(SvcMemory svcMemory) {
+    public DalvikVM(SvcMemory svcMemory, Jni jni) {
+        this.jni = jni;
+
         _JavaVM = svcMemory.allocate(4);
 
         Pointer _FindClass = svcMemory.registerSvc(new ArmSvc() {
@@ -170,6 +173,23 @@ public class DalvikVM implements VM {
             }
         });
 
+        Pointer _CallStaticBooleanMethodV = svcMemory.registerSvc(new ArmSvc() {
+            @Override
+            public int handle(Unicorn u, Emulator emulator) {
+                UnicornPointer clazz = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
+                UnicornPointer jmethodID = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R2);
+                UnicornPointer va_list = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R3);
+                log.debug("CallStaticBooleanMethodV clazz=" + clazz + ", jmethodID=" + jmethodID + ", va_list=" + va_list);
+                DvmClass dvmClass = classMap.get(clazz.peer);
+                DvmMethod dvmMethod = dvmClass == null ? null : dvmClass.staticMethodMap.get(jmethodID.peer);
+                if (dvmMethod == null) {
+                    throw new UnicornException();
+                } else {
+                    return dvmMethod.callStaticBooleanMethodV();
+                }
+            }
+        });
+
         Pointer _CallStaticIntMethodV = svcMemory.registerSvc(new ArmSvc() {
             @Override
             public int handle(Unicorn u, Emulator emulator) {
@@ -273,6 +293,7 @@ public class DalvikVM implements VM {
         _JNIEnvImpl.setPointer(0x178, _GetFieldID);
         _JNIEnvImpl.setPointer(0x1c4, _GetStaticMethodID);
         _JNIEnvImpl.setPointer(0x1cc, _CallStaticObjectMethodV);
+        _JNIEnvImpl.setPointer(0x1d8, _CallStaticBooleanMethodV);
         _JNIEnvImpl.setPointer(0x208, _CallStaticIntMethodV);
         _JNIEnvImpl.setPointer(0x240, _GetStaticFieldID);
         _JNIEnvImpl.setPointer(0x244, _GetStaticObjectField);
@@ -314,6 +335,16 @@ public class DalvikVM implements VM {
     }
 
     final Map<Long, DvmObject> objectMap = new HashMap<>();
+
+    int addObject(DvmObject object) {
+        if (object == null) {
+            return 0;
+        } else {
+            long hash = object.hashCode() & 0xffffffffL;
+            objectMap.put(hash, object);
+            return (int) hash;
+        }
+    }
 
     @Override
     public DvmClass findClass(String className) {

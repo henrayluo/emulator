@@ -2,7 +2,6 @@ package cn.banny.emulator.dvm;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import unicorn.UnicornException;
 
 class DvmField {
 
@@ -20,23 +19,9 @@ class DvmField {
 
     int getStaticObjectField() {
         String signature = dvmClass.className + "->" + fieldName + ":" + fieldType;
-        int index = fieldType.lastIndexOf('L');
-        if (index == -1) {
-            throw new UnicornException("Illegal fieldType: " + fieldType);
-        }
-        String objectType = fieldType.substring(index + 1, fieldType.length() - 1);
-        log.debug("getStaticObjectField dvmClass=" + dvmClass + ", fieldName=" + fieldName + ", fieldType=" + fieldType + ", signature=" + signature + ", objectType=" + objectType);
-        DvmObject object;
-        switch (signature) {
-            case "android/provider/Settings$Secure->ALLOW_MOCK_LOCATION:Ljava/lang/String;":
-                object = new DvmObject(dvmClass, "mock_location");
-                break;
-            default:
-                throw new UnicornException();
-        }
-        long hash = object.hashCode() & 0xffffffffL;
-        dvmClass.vm.objectMap.put(hash, object);
-        return (int) hash;
+        log.debug("getStaticObjectField dvmClass=" + dvmClass + ", fieldName=" + fieldName + ", fieldType=" + fieldType + ", signature=" + signature);
+        DvmObject object = dvmClass.vm.jni.getStaticObjectField(dvmClass, signature);
+        return dvmClass.vm.addObject(object);
     }
 
 }

@@ -213,7 +213,7 @@ public class VirtualMemory implements Memory {
 
     @Override
     public Module dlopen(String filename, boolean calInit) throws IOException {
-        Module loaded = modules.get(filename);
+        Module loaded = modules.get(FilenameUtils.getName(filename));
         if (loaded != null) {
             return loaded;
         }
@@ -262,15 +262,7 @@ public class VirtualMemory implements Memory {
 
     @Override
     public boolean dlclose(long handle) {
-        for (Iterator<Map.Entry<String, Module>> iterator = modules.entrySet().iterator(); iterator.hasNext(); ) {
-            Module module = iterator.next().getValue();
-            if (module.base == handle) {
-                module.unload(unicorn);
-                iterator.remove();
-                return true;
-            }
-        }
-        return false;
+        return true;
     }
 
     private Module loadInternal(File workDir, File file, final WriteHook unpackHook) throws IOException {
