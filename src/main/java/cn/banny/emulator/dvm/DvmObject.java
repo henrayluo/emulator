@@ -1,6 +1,6 @@
 package cn.banny.emulator.dvm;
 
-public class DvmObject {
+public class DvmObject implements Hashable {
 
     final DvmClass objectType;
     private final Object value;

@@ -254,7 +254,10 @@ public class DalvikVM implements VM {
                     Pointer name = method.getPointer(0);
                     Pointer signature = method.getPointer(4);
                     Pointer fnPtr = method.getPointer(8);
-                    log.debug("RegisterNatives dvmClass=" + dvmClass + ", name=" + name.getString(0) + ", signature=" + signature.getString(0) + ", fnPtr=" + fnPtr);
+                    String methodName = name.getString(0);
+                    String signatureValue = signature.getString(0);
+                    log.debug("RegisterNatives dvmClass=" + dvmClass + ", name=" + methodName + ", signature=" + signatureValue + ", fnPtr=" + fnPtr);
+                    dvmClass.nativesMap.put(methodName + signatureValue, (UnicornPointer) fnPtr);
                 }
                 return JNI_OK;
             }

@@ -5,7 +5,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import unicorn.UnicornException;
 
-class DvmMethod {
+class DvmMethod implements Hashable {
 
     private static final Log log = LogFactory.getLog(DvmMethod.class);
 

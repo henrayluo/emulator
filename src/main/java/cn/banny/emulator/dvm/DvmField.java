@@ -3,7 +3,7 @@ package cn.banny.emulator.dvm;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-class DvmField {
+class DvmField implements Hashable {
 
     private static final Log log = LogFactory.getLog(DvmField.class);
 

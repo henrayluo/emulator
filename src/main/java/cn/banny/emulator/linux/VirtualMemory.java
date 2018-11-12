@@ -185,6 +185,7 @@ public class VirtualMemory implements Memory {
                 m.initFunctionList.clear();
             }
         }
+        module.addReferenceCount();
         return module;
     }
 
@@ -215,6 +216,7 @@ public class VirtualMemory implements Memory {
     public Module dlopen(String filename, boolean calInit) throws IOException {
         Module loaded = modules.get(FilenameUtils.getName(filename));
         if (loaded != null) {
+            loaded.addReferenceCount();
             return loaded;
         }
 
@@ -234,6 +236,7 @@ public class VirtualMemory implements Memory {
                 m.initFunctionList.clear();
             }
         }
+        module.addReferenceCount();
         return module;
     }
 
@@ -262,7 +265,17 @@ public class VirtualMemory implements Memory {
 
     @Override
     public boolean dlclose(long handle) {
-        return true;
+        for (Iterator<Map.Entry<String, Module>> iterator = modules.entrySet().iterator(); iterator.hasNext(); ) {
+            Module module = iterator.next().getValue();
+            if (module.base == handle) {
+                if (module.decrementReferenceCount() <= 0) {
+                    module.unload(unicorn);
+                    iterator.remove();
+                }
+                return true;
+            }
+        }
+        return false;
     }
 
     private Module loadInternal(File workDir, File file, final WriteHook unpackHook) throws IOException {
@@ -356,6 +369,7 @@ public class VirtualMemory implements Memory {
 
             Module loaded = modules.get(neededLibrary);
             if (loaded != null) {
+                loaded.addReferenceCount();
                 neededLibraries.put(FilenameUtils.getBaseName(loaded.name), loaded);
                 continue;
             }
@@ -365,6 +379,7 @@ public class VirtualMemory implements Memory {
             }
             if (neededLibraryFile != null && neededLibraryFile.canRead()) {
                 Module needed = loadInternal(workDir, neededLibraryFile, null);
+                needed.addReferenceCount();
                 neededLibraries.put(FilenameUtils.getBaseName(needed.name), needed);
             } else {
                 log.info(soName + " load dependency " + neededLibrary + " failed");

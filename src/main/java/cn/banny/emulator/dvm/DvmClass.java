@@ -1,13 +1,14 @@
 package cn.banny.emulator.dvm;
 
+import cn.banny.emulator.Emulator;
+import cn.banny.emulator.linux.Module;
+import cn.banny.emulator.pointer.UnicornPointer;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
-public class DvmClass {
+public class DvmClass implements Hashable {
 
     private static final Log log = LogFactory.getLog(DvmClass.class);
 
@@ -76,4 +77,21 @@ public class DvmClass {
     public String toString() {
         return className;
     }
+
+    final Map<String, UnicornPointer> nativesMap = new HashMap<>();
+
+    public Number callStaticJniMethod(Emulator emulator, String method, Object...args) {
+        UnicornPointer fnPtr = nativesMap.get(method);
+        if (fnPtr == null) {
+            throw new IllegalArgumentException("find method failed: " + method);
+        }
+        List<Object> list = new ArrayList<>(10);
+        list.add(vm.getJNIEnv());
+        list.add(this);
+        if (args != null) {
+            Collections.addAll(list, args);
+        }
+        return Module.emulateFunction(emulator, fnPtr.peer, list.toArray())[0];
+    }
+
 }

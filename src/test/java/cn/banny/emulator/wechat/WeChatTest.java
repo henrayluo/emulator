@@ -54,7 +54,7 @@ public class WeChatTest implements ModuleListener, Jni {
         module.callFunction(emulator, "JNI_OnLoad", vm.getJavaVM(), null);
         System.out.println("Call JNI_OnLoad finished");
         DvmClass Normsg$J2CBridge = vm.findClass("com/tencent/mm/plugin/normsg/Normsg$J2CBridge");
-        Number ret = module.callFunction(emulator, 0x40da8 + 1, vm.getJNIEnv(), Normsg$J2CBridge.hashCode(), 0, 0, 0)[0];
+        Number ret = Normsg$J2CBridge.callStaticJniMethod(emulator, "aa(ZZZ)[B", VM.JNI_FALSE, VM.JNI_FALSE, VM.JNI_FALSE);
         System.out.println("ret=0x" + (ret.intValue() & 0xffffffffL));
     }
 

@@ -5,6 +5,7 @@ import cn.banny.emulator.ByteArrayNumber;
 import cn.banny.emulator.Emulator;
 import cn.banny.emulator.Memory;
 import cn.banny.emulator.StringNumber;
+import cn.banny.emulator.dvm.Hashable;
 import cn.banny.emulator.pointer.UnicornPointer;
 import com.sun.jna.Pointer;
 import net.fornwall.jelf.ElfSymbol;
@@ -170,6 +171,10 @@ public class Module {
     }
 
     public Number[] callFunction(Emulator emulator, long offset, Object... args) {
+        return emulateFunction(emulator, base + offset, args);
+    }
+
+    public static Number[] emulateFunction(Emulator emulator, long address, Object... args) {
         List<Number> list = new ArrayList<>(args.length);
         for (Object arg : args) {
             if (arg instanceof String) {
@@ -181,13 +186,15 @@ public class Module {
                 list.add(pointer.peer);
             } else if (arg instanceof Number) {
                 list.add((Number) arg);
+            } else if(arg instanceof Hashable) {
+                list.add(arg.hashCode()); // dvm object
             } else if(arg == null) {
                 list.add(0); // null
             } else {
                 throw new IllegalStateException("Unsupported arg: " + arg);
             }
         }
-        return emulator.eFunc(base + offset, list.toArray(new Number[0]));
+        return emulator.eFunc(address, list.toArray(new Number[0]));
     }
 
     Collection<Module> getNeededLibraries() {
@@ -196,6 +203,16 @@ public class Module {
 
     public Module getDependencyModule(String name) {
         return neededLibraries.get(name);
+    }
+
+    private int referenceCount;
+
+    void addReferenceCount() {
+        referenceCount++;
+    }
+
+    int decrementReferenceCount() {
+        return --referenceCount;
     }
 
     @Override
