@@ -1,6 +1,7 @@
 package cn.banny.emulator.arm;
 
 import cn.banny.emulator.Emulator;
+import cn.banny.emulator.SvcMemory;
 
 /**
  * arm emulator
@@ -28,5 +29,7 @@ public interface ARMEmulator extends Emulator {
     int R_ARM_RELATIVE = 23;
 
     int PAGE_ALIGN = 0x1000; // 4k
+
+    SvcMemory getSvcMemory();
 
 }

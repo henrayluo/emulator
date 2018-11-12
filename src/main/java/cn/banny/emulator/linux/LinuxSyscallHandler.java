@@ -49,20 +49,21 @@ public class LinuxSyscallHandler extends SyscallHandler {
         } else {
             svcNumber = pc.getInt(-4) & 0xffffff;
         }
-        if (svcNumber != 0) {
-            Svc svc = svcMemory.getSvc(svcNumber);
-            if (svc != null) {
-                u.reg_write(ArmConst.UC_ARM_REG_R0, svc.handle(u, emulator));
-                return;
-            }
-            u.emu_stop();
-            throw new IllegalStateException("svc number: " + svcNumber);
-        }
 
         int NR = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R7)).intValue();
         String syscall = null;
         Throwable exception = null;
         try {
+            if (svcNumber != 0) {
+                Svc svc = svcMemory.getSvc(svcNumber);
+                if (svc != null) {
+                    u.reg_write(ArmConst.UC_ARM_REG_R0, svc.handle(u, emulator));
+                    return;
+                }
+                u.emu_stop();
+                throw new IllegalStateException("svc number: " + svcNumber);
+            }
+
             if (intno == 2) {
                 switch (NR) {
                     case 2:
@@ -268,7 +269,7 @@ public class LinuxSyscallHandler extends SyscallHandler {
         }
 
         if (log.isDebugEnabled()) {
-            log.warn("handleInterrupt intno=" + intno + ", NR=" + NR + ", PC=" + pc + ", syscall=" + syscall, exception);
+            log.warn("handleInterrupt intno=" + intno + ", NR=" + NR + ", svcNumber=0x" + Integer.toHexString(svcNumber) + ", PC=" + pc + ", syscall=" + syscall, exception);
         }
 
         if (exception instanceof UnicornException) {

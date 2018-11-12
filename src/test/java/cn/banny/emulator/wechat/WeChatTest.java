@@ -1,7 +1,15 @@
-package cn.banny.emulator;
+package cn.banny.emulator.wechat;
 
+import cn.banny.emulator.Emulator;
+import cn.banny.emulator.LibraryResolver;
+import cn.banny.emulator.Memory;
+import cn.banny.emulator.SvcMemory;
+import cn.banny.emulator.arm.ARMEmulator;
 import cn.banny.emulator.arm.AndroidARMEmulator;
 import cn.banny.emulator.debugger.Debugger;
+import cn.banny.emulator.dvm.DalvikVM;
+import cn.banny.emulator.dvm.DvmClass;
+import cn.banny.emulator.dvm.VM;
 import cn.banny.emulator.linux.AndroidResolver;
 import cn.banny.emulator.linux.Module;
 import cn.banny.emulator.linux.ModuleListener;
@@ -15,7 +23,7 @@ public class WeChatTest implements ModuleListener {
         return new AndroidResolver(new File("android"), 19, "libc.so", "libdl.so", "liblog.so", "libm.so", "libz.so", "libstdc++.so", "libdvm.so", "libjavacore.so", "libnativehelper.so");
     }
 
-    private static Emulator createARMEmulator() {
+    private static ARMEmulator createARMEmulator() {
         return new AndroidARMEmulator("com.tencent.mm");
     }
 
@@ -24,7 +32,7 @@ public class WeChatTest implements ModuleListener {
     }
 
     public static void main(String[] args) throws IOException {
-        Emulator emulator = createARMEmulator();
+        ARMEmulator emulator = createARMEmulator();
         final Memory memory = emulator.getMemory();
         memory.setLibraryResolver(createLibraryResolver());
         memory.setCallInitFunction();
@@ -33,12 +41,18 @@ public class WeChatTest implements ModuleListener {
         emulator.setWorkDir(elfFile.getParentFile());
         Module module = emulator.loadLibrary(elfFile, true);
 
-        /*Debugger debugger = emulator.attach();
-        debugger.addBreakPoint(module, 0x00040EEC);*/
+        Debugger debugger = emulator.attach();
+        // debugger.addBreakPoint(module, 0x00040EEC);
         // debugger.addBreakPoint(null, 0xffff0fdc);
-        emulator.traceCode(module.base, module.base + module.size);
-        module.callFunction(emulator, "JNI_OnLoad", null, null);
-        Number ret = module.callFunction(emulator, 0x40da8 + 1, null, null, 0, 0, 0)[0];
+        // debugger.addBreakPoint(module, 0x00f799);
+
+        SvcMemory svcMemory = emulator.getSvcMemory();
+        VM vm = new DalvikVM(svcMemory);
+
+        // emulator.traceCode(module.base, module.base + module.size);
+        module.callFunction(emulator, "JNI_OnLoad", vm.getJavaVM(), null);
+        DvmClass Normsg$J2CBridge = vm.findClass("com/tencent/mm/plugin/normsg/Normsg$J2CBridge");
+        Number ret = module.callFunction(emulator, 0x40da8 + 1, vm.getJNIEnv(), Normsg$J2CBridge.hashCode(), 0, 0, 0)[0];
         System.out.println("ret=0x" + (ret.intValue() & 0xffffffffL));
     }
 

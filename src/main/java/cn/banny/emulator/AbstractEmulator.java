@@ -39,6 +39,7 @@ public abstract class AbstractEmulator implements Emulator {
 
     protected long timeout = DEFAULT_TIMEOUT;
 
+    private final SvcMemory svcMemory;
     private final SyscallHandler syscallHandler;
 
     public AbstractEmulator(int unicorn_arch, int unicorn_mode, String processName) {
@@ -69,7 +70,7 @@ public abstract class AbstractEmulator implements Emulator {
             }
         }, UnicornConst.UC_HOOK_MEM_READ_UNMAPPED | UnicornConst.UC_HOOK_MEM_WRITE_UNMAPPED | UnicornConst.UC_HOOK_MEM_FETCH_UNMAPPED, null);
 
-        final SvcMemory svcMemory = new SvcMemory(unicorn, 0xfffe0000L, 0x10000);
+        this.svcMemory = new SvcMemory(unicorn, 0xfffe0000L, 0x10000);
         this.syscallHandler = new LinuxSyscallHandler(new Implementation(unicorn, svcMemory), svcMemory);
         this.memory = new VirtualMemory(unicorn, this, syscallHandler);
 
@@ -82,6 +83,10 @@ public abstract class AbstractEmulator implements Emulator {
         String name = ManagementFactory.getRuntimeMXBean().getName();
         String pid = name.split("@")[0];
         this.pid = Integer.parseInt(pid);
+    }
+
+    public SvcMemory getSvcMemory() {
+        return svcMemory;
     }
 
     private void switchMode(int mode) {

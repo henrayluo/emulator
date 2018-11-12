@@ -353,4 +353,15 @@ public class UnicornPointer extends Pointer {
         return "unicorn@0x" + Long.toHexString(peer);
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (o == this) {
+            return true;
+        }
+        if (o == null) {
+            return false;
+        }
+        return (o instanceof UnicornPointer) && (((UnicornPointer)o).peer == peer);
+    }
+
 }
