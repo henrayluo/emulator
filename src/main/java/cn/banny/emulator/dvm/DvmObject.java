@@ -1,16 +1,24 @@
 package cn.banny.emulator.dvm;
 
-public class DvmObject implements Hashable {
+public abstract class DvmObject<T> implements Hashable {
 
     final DvmClass objectType;
-    private final Object value;
+    private final T value;
 
-    public DvmObject(DvmClass objectType, Object value) {
+    public DvmObject(DvmClass objectType, T value) {
         this.objectType = objectType;
         this.value = value;
     }
 
-    public Object getValue() {
+    public T getValue() {
         return value;
     }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName() + "{" +
+                "value=" + value +
+                '}';
+    }
+
 }

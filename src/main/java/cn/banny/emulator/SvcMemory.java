@@ -1,9 +1,12 @@
 package cn.banny.emulator;
 
+import cn.banny.emulator.arm.ARM;
 import cn.banny.emulator.pointer.UnicornPointer;
 import cn.banny.emulator.svc.ArmSvc;
 import cn.banny.emulator.svc.Svc;
 import cn.banny.emulator.svc.ThumbSvc;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import unicorn.Unicorn;
 import unicorn.UnicornConst;
 
@@ -11,6 +14,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class SvcMemory {
+
+    private static final Log log = LogFactory.getLog(SvcMemory.class);
 
     private UnicornPointer base;
 
@@ -23,9 +28,19 @@ public class SvcMemory {
     }
 
     public UnicornPointer allocate(int size) {
+        size = ARM.alignSize(size);
         UnicornPointer pointer = base.share(0, size);
         base = (UnicornPointer) base.share(size);
         return pointer;
+    }
+
+    public void free(UnicornPointer utf) {
+        if (base.peer == utf.peer + utf.getSize()) {
+            log.debug("free success: base=" + base + ", utf=" + utf);
+            base = (UnicornPointer) base.share(-utf.getSize());
+        } else {
+            log.debug("free failed: base=" + base + ", utf=" + utf);
+        }
     }
 
     private int thumbSvcNumber = 0;
@@ -51,5 +66,4 @@ public class SvcMemory {
         }
         return svc.onRegister(this, number);
     }
-
 }

@@ -26,17 +26,17 @@ class DvmMethod implements Hashable {
         return dvmClass.vm.addObject(object);
     }
 
-    int callObjectMethodV() {
+    int callObjectMethodV(VaList vaList) {
         String signature = dvmClass.className + "->" + methodName + args;
         log.debug("CallObjectMethodV signature=" + signature);
-        DvmObject object = dvmClass.vm.jni.callObjectMethodV(dvmClass, signature, methodName, args);
+        DvmObject object = dvmClass.vm.jni.callObjectMethodV(dvmClass, signature, methodName, args, vaList);
         return dvmClass.vm.addObject(object);
     }
 
-    int callStaticIntMethodV(UnicornPointer va_list) {
+    int callStaticIntMethodV(VaList vaList) {
         String signature = dvmClass.className + "->" + methodName + args;
         log.debug("callStaticIntMethodV signature=" + signature);
-        return dvmClass.vm.jni.callStaticIntMethodV(signature, new VaList(dvmClass.vm, va_list));
+        return dvmClass.vm.jni.callStaticIntMethodV(signature, vaList);
     }
 
     int callStaticBooleanMethodV() {

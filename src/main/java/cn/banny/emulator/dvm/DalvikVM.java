@@ -11,6 +11,7 @@ import unicorn.ArmConst;
 import unicorn.Unicorn;
 import unicorn.UnicornException;
 
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -24,7 +25,7 @@ public class DalvikVM implements VM {
     private final UnicornPointer _JNIEnv;
     final Jni jni;
 
-    public DalvikVM(SvcMemory svcMemory, Jni jni) {
+    public DalvikVM(final SvcMemory svcMemory, Jni jni) {
         this.jni = jni;
 
         _JavaVM = svcMemory.allocate(4);
@@ -39,6 +40,13 @@ public class DalvikVM implements VM {
                 log.debug("FindClass env=" + env + ", className=" + name + ", hash=0x" + Long.toHexString(hash));
                 classMap.put(hash, new DvmClass(DalvikVM.this, name));
                 return (int) hash;
+            }
+        });
+
+        Pointer _ExceptionOccurred = svcMemory.registerSvc(new ArmSvc() {
+            @Override
+            public int handle(Unicorn u, Emulator emulator) {
+                return JNI_NULL;
             }
         });
 
@@ -109,14 +117,15 @@ public class DalvikVM implements VM {
             public int handle(Unicorn u, Emulator emulator) {
                 UnicornPointer object = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
                 UnicornPointer jmethodID = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R2);
-                log.debug("CallObjectMethodV object=" + object + ", jmethodID=" + jmethodID);
+                UnicornPointer va_list = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R3);
+                log.debug("CallObjectMethodV object=" + object + ", jmethodID=" + jmethodID + ", va_list=" + va_list);
                 DvmObject dvmObject = objectMap.get(object.peer);
                 DvmClass dvmClass = dvmObject == null ? null : dvmObject.objectType;
                 DvmMethod dvmMethod = dvmClass == null ? null : dvmClass.methodMap.get(jmethodID.peer);
                 if (dvmMethod == null) {
                     throw new UnicornException();
                 } else {
-                    return dvmMethod.callObjectMethodV();
+                    return dvmMethod.callObjectMethodV(new VaList(DalvikVM.this, va_list));
                 }
             }
         });
@@ -135,6 +144,23 @@ public class DalvikVM implements VM {
                     throw new UnicornException();
                 } else {
                     return dvmClass.getFieldID(name, args);
+                }
+            }
+        });
+
+        Pointer _GetObjectField = svcMemory.registerSvc(new ArmSvc() {
+            @Override
+            public int handle(Unicorn u, Emulator emulator) {
+                UnicornPointer object = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
+                UnicornPointer jfieldID = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R2);
+                log.debug("GetObjectField object=" + object + ", jfieldID=" + jfieldID);
+                DvmObject dvmObject = objectMap.get(object.peer);
+                DvmClass dvmClass = dvmObject == null ? null : dvmObject.objectType;
+                DvmField dvmField = dvmClass == null ? null : dvmClass.fieldMap.get(jfieldID.peer);
+                if (dvmField == null) {
+                    throw new UnicornException();
+                } else {
+                    return dvmField.getObjectField(dvmObject);
                 }
             }
         });
@@ -202,7 +228,7 @@ public class DalvikVM implements VM {
                 if (dvmMethod == null) {
                     throw new UnicornException();
                 } else {
-                    return dvmMethod.callStaticIntMethodV(va_list);
+                    return dvmMethod.callStaticIntMethodV(new VaList(DalvikVM.this, va_list));
                 }
             }
         });
@@ -238,6 +264,74 @@ public class DalvikVM implements VM {
                 } else {
                     return dvmField.getStaticObjectField();
                 }
+            }
+        });
+
+        Pointer _GetStaticIntField = svcMemory.registerSvc(new ArmSvc() {
+            @Override
+            public int handle(Unicorn u, Emulator emulator) {
+                UnicornPointer clazz = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
+                UnicornPointer jfieldID = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R2);
+                log.debug("GetStaticIntField clazz=" + clazz + ", jfieldID=" + jfieldID);
+                DvmClass dvmClass = classMap.get(clazz.peer);
+                DvmField dvmField = dvmClass == null ? null : dvmClass.staticFieldMap.get(jfieldID.peer);
+                if (dvmField == null) {
+                    throw new UnicornException();
+                } else {
+                    return dvmField.getStaticIntField();
+                }
+            }
+        });
+
+        Pointer _GetStringUTFLength = svcMemory.registerSvc(new ArmSvc() {
+            @Override
+            public int handle(Unicorn u, Emulator emulator) {
+                DvmObject string = objectMap.get(UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1).peer);
+                log.debug("GetStringUTFLength string=" + string);
+                String value = (String) string.getValue();
+                byte[] data = value.getBytes(StandardCharsets.UTF_8);
+                return data.length;
+            }
+        });
+
+        Pointer _GetStringUTFChars = svcMemory.registerSvc(new ArmSvc() {
+            @Override
+            public int handle(Unicorn u, Emulator emulator) {
+                StringObject string = (StringObject) objectMap.get(UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1).peer);
+                Pointer isCopy = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R2);
+                log.debug("GetStringUTFChars string=" + string + ", isCopy=" + isCopy);
+                if (isCopy != null) {
+                    isCopy.setInt(0, JNI_TRUE);
+                }
+                String value = string.getValue();
+                byte[] data = value.getBytes(StandardCharsets.UTF_8);
+                UnicornPointer pointer = svcMemory.allocate(data.length);
+                pointer.write(0, data, 0, data.length);
+                string.utf = pointer;
+                return (int) pointer.peer;
+            }
+        });
+
+        Pointer _ReleaseStringUTFChars = svcMemory.registerSvc(new ArmSvc() {
+            @Override
+            public int handle(Unicorn u, Emulator emulator) {
+                StringObject string = (StringObject) objectMap.get(UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1).peer);
+                Pointer utf = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R2);
+                log.debug("ReleaseStringUTFChars string=" + string + ", utf=" + utf);
+                if (utf.equals(string.utf)) {
+                    svcMemory.free(string.utf);
+                }
+                return 0;
+            }
+        });
+
+        Pointer _NewStringUTF = svcMemory.registerSvc(new ArmSvc() {
+            @Override
+            public int handle(Unicorn u, Emulator emulator) {
+                Pointer bytes = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1);
+                String utf = bytes.getString(0);
+                log.debug("NewStringUTF bytes=" + bytes + ", utf=" + utf);
+                return addObject(new StringObject(resolveClass("java/lang/String"), utf));
             }
         });
 
@@ -287,6 +381,7 @@ public class DalvikVM implements VM {
             _JNIEnvImpl.setInt(i, i);
         }
         _JNIEnvImpl.setPointer(0x18, _FindClass);
+        _JNIEnvImpl.setPointer(0x3c, _ExceptionOccurred);
         _JNIEnvImpl.setPointer(0x54, _NewGlobalRef);
         _JNIEnvImpl.setPointer(0x58, _DeleteGlobalRef);
         _JNIEnvImpl.setPointer(0x60, _IsSameObject);
@@ -294,12 +389,18 @@ public class DalvikVM implements VM {
         _JNIEnvImpl.setPointer(0x84, _GetMethodID);
         _JNIEnvImpl.setPointer(0x8c, _CallObjectMethodV);
         _JNIEnvImpl.setPointer(0x178, _GetFieldID);
+        _JNIEnvImpl.setPointer(0x17c, _GetObjectField);
         _JNIEnvImpl.setPointer(0x1c4, _GetStaticMethodID);
         _JNIEnvImpl.setPointer(0x1cc, _CallStaticObjectMethodV);
         _JNIEnvImpl.setPointer(0x1d8, _CallStaticBooleanMethodV);
         _JNIEnvImpl.setPointer(0x208, _CallStaticIntMethodV);
         _JNIEnvImpl.setPointer(0x240, _GetStaticFieldID);
         _JNIEnvImpl.setPointer(0x244, _GetStaticObjectField);
+        _JNIEnvImpl.setPointer(0x258, _GetStaticIntField);
+        _JNIEnvImpl.setPointer(0x2a0, _GetStringUTFLength);
+        _JNIEnvImpl.setPointer(0x2a4, _GetStringUTFChars);
+        _JNIEnvImpl.setPointer(0x2a8, _ReleaseStringUTFChars);
+        _JNIEnvImpl.setPointer(0x29c, _NewStringUTF);
         _JNIEnvImpl.setPointer(0x35c, _RegisterNatives);
         _JNIEnvImpl.setPointer(0x390, _ExceptionCheck);
         _JNIEnvImpl.setPointer(0x3a0, _GetObjectRefType);
@@ -346,6 +447,19 @@ public class DalvikVM implements VM {
             long hash = object.hashCode() & 0xffffffffL;
             objectMap.put(hash, object);
             return (int) hash;
+        }
+    }
+
+    @Override
+    public DvmClass resolveClass(String className) {
+        long hash = className.hashCode() & 0xffffffffL;
+        DvmClass clazz = classMap.get(hash);
+        if (clazz != null) {
+            return clazz;
+        } else {
+            clazz = new DvmClass(this, className);
+            classMap.put(hash, clazz);
+            return clazz;
         }
     }
 

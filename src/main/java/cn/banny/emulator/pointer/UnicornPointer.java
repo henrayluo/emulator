@@ -35,6 +35,10 @@ public class UnicornPointer extends Pointer {
         return this;
     }
 
+    public long getSize() {
+        return size;
+    }
+
     public static UnicornPointer pointer(Unicorn unicorn, long addr) {
         return addr == 0 ? null : new UnicornPointer(unicorn, addr);
     }
@@ -332,10 +336,6 @@ public class UnicornPointer extends Pointer {
 
         UnicornPointer pointer = new UnicornPointer(unicorn, peer + offset);
         if (size > 0) {
-            if (offset < 0) {
-                throw new IllegalArgumentException();
-            }
-
             if (offset >= size) {
                 throw new InvalidMemoryAccessException();
             }

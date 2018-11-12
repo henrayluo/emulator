@@ -12,7 +12,7 @@ public class DvmClass implements Hashable {
 
     private static final Log log = LogFactory.getLog(DvmClass.class);
 
-    final DalvikVM vm;
+    public final DalvikVM vm;
     final String className;
 
     DvmClass(DalvikVM vm, String className) {

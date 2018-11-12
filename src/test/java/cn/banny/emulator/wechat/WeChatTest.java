@@ -62,7 +62,27 @@ public class WeChatTest implements ModuleListener, Jni {
     public DvmObject getStaticObjectField(DvmClass dvmClass, String signature) {
         switch (signature) {
             case "android/provider/Settings$Secure->ALLOW_MOCK_LOCATION:Ljava/lang/String;":
-                return new DvmObject(dvmClass, "mock_location");
+                return new StringObject(dvmClass, "mock_location");
+        }
+        throw new UnicornException();
+    }
+
+    @Override
+    public int getObjectField(DvmObject dvmObject, String signature) {
+        throw new UnicornException();
+    }
+
+    /**
+     * flag: return information about the
+     * signatures included in the package.
+     */
+    private static final int GET_SIGNATURES          = 0x00000040;
+
+    @Override
+    public int getStaticIntField(DvmClass dvmClass, String signature) {
+        switch (signature) {
+            case "android/content/pm/PackageManager->GET_SIGNATURES:I":
+                return GET_SIGNATURES;
         }
         throw new UnicornException();
     }
@@ -95,13 +115,27 @@ public class WeChatTest implements ModuleListener, Jni {
         }
     }
 
+    private static final String PACKAGE_NAME = "com.tencent.mm";
+
     @Override
-    public DvmObject callObjectMethodV(DvmClass dvmClass, String signature, String methodName, String args) {
+    public DvmObject callObjectMethodV(DvmClass dvmClass, String signature, String methodName, String args, VaList vaList) {
+        int index = args.lastIndexOf(")L");
+        if (index == -1) {
+            throw new UnicornException("Invalid args: " + args);
+        }
+        String className = args.substring(index + 2, args.length() - 1);
         switch (signature) {
             case "android/app/ActivityThread->getClassLoader()Ljava/lang/ClassLoader;":
             case "android/app/ActivityThread->getContentResolver()Landroid/content/ContentResolver;":
             case "android/app/ActivityThread->getPackageManager()Landroid/content/pm/PackageManager;":
-                return new DvmObject(dvmClass, methodName + args);
+                return new PlaceholderObject(dvmClass.vm.resolveClass(className), methodName, args);
+            case "android/app/ActivityThread->getPackageName()Ljava/lang/String;":
+                return new StringObject(dvmClass.vm.resolveClass(className), PACKAGE_NAME);
+            case "android/content/pm/PackageManager->getPackageInfo(Ljava/lang/String;I)Landroid/content/pm/PackageInfo;":
+                StringObject packageName = (StringObject) vaList.getObject(0);
+                int flags = vaList.getInt(4);
+                System.out.println("getPackageInfo packageName=" + packageName + ", flags=0x" + Long.toHexString(flags));
+                return new PackageInfo(dvmClass.vm.resolveClass(className), packageName.getValue());
             default:
                 throw new UnicornException();
         }
@@ -112,7 +146,7 @@ public class WeChatTest implements ModuleListener, Jni {
         switch (signature) {
             case "android/app/ActivityThread->currentActivityThread()Landroid/app/ActivityThread;":
             case "android/app/ActivityThread->currentApplication()Landroid/app/Application;":
-                return new DvmObject(dvmClass, methodName + args);
+                return new PlaceholderObject(dvmClass, methodName, args);
             default:
                 throw new UnicornException();
         }
