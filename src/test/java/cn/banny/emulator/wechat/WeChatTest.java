@@ -68,7 +68,13 @@ public class WeChatTest implements ModuleListener, Jni {
     }
 
     @Override
-    public int getObjectField(DvmObject dvmObject, String signature) {
+    public int getObjectField(VM vm, DvmObject dvmObject, String signature) {
+        switch (signature) {
+            case "android/content/pm/PackageInfo->signatures:[Landroid/content/pm/Signature;":
+                PackageInfo packageInfo = (PackageInfo) dvmObject;
+                DvmObject array = new ArrayObject(new Signature(vm.resolveClass("android/content/pm/Signature"), packageInfo.getValue()));
+                return vm.addObject(array);
+        }
         throw new UnicornException();
     }
 
@@ -119,7 +125,7 @@ public class WeChatTest implements ModuleListener, Jni {
 
     @Override
     public DvmObject callObjectMethodV(DvmClass dvmClass, String signature, String methodName, String args, VaList vaList) {
-        int index = args.lastIndexOf(")L");
+        int index = args.lastIndexOf(")");
         if (index == -1) {
             throw new UnicornException("Invalid args: " + args);
         }

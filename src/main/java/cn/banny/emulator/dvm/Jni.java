@@ -14,5 +14,5 @@ public interface Jni {
 
     DvmObject callStaticObjectMethodV(DvmClass dvmClass, String signature, String methodName, String args);
 
-    int getObjectField(DvmObject dvmObject, String signature);
+    int getObjectField(VM vm, DvmObject dvmObject, String signature);
 }

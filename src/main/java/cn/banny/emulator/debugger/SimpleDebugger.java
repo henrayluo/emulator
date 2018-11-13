@@ -219,13 +219,13 @@ public class SimpleDebugger implements Debugger {
                         }
                         System.out.println(sb);
 
-                        if (r7.peer <= sp.peer) {
+                        if (r7.peer < sp.peer) {
                             System.err.println("r7=" + r7 + ", sp=" + sp);
                             break;
                         }
 
-                        r7 = r7.getPointer(0);
                         lr = r7.getPointer(4);
+                        r7 = r7.getPointer(0);
                     } while(true);
                     if (!hasTrace) {
                         System.err.println("Decode back trace failed.");

@@ -325,6 +325,23 @@ public class DalvikVM implements VM {
             }
         });
 
+        Pointer _GetArrayLength = svcMemory.registerSvc(new ArmSvc() {
+            @Override
+            public int handle(Unicorn u, Emulator emulator) {
+                ArrayObject array = (ArrayObject) objectMap.get(UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1).peer);
+                return array.getValue().length;
+            }
+        });
+
+        Pointer _GetObjectArrayElement = svcMemory.registerSvc(new ArmSvc() {
+            @Override
+            public int handle(Unicorn u, Emulator emulator) {
+                ArrayObject array = (ArrayObject) objectMap.get(UnicornPointer.register(u, ArmConst.UC_ARM_REG_R1).peer);
+                int index = ((Number) u.reg_read(ArmConst.UC_ARM_REG_R2)).intValue();
+                return addObject(array.getValue()[index]);
+            }
+        });
+
         Pointer _NewStringUTF = svcMemory.registerSvc(new ArmSvc() {
             @Override
             public int handle(Unicorn u, Emulator emulator) {
@@ -376,37 +393,39 @@ public class DalvikVM implements VM {
             }
         });
 
-        final UnicornPointer _JNIEnvImpl = svcMemory.allocate(0x3a4);
+        final UnicornPointer impl = svcMemory.allocate(0x3a4);
         for (int i = 0; i < 0x3a4; i += 4) {
-            _JNIEnvImpl.setInt(i, i);
+            impl.setInt(i, i);
         }
-        _JNIEnvImpl.setPointer(0x18, _FindClass);
-        _JNIEnvImpl.setPointer(0x3c, _ExceptionOccurred);
-        _JNIEnvImpl.setPointer(0x54, _NewGlobalRef);
-        _JNIEnvImpl.setPointer(0x58, _DeleteGlobalRef);
-        _JNIEnvImpl.setPointer(0x60, _IsSameObject);
-        _JNIEnvImpl.setPointer(0x7c, _GetObjectClass);
-        _JNIEnvImpl.setPointer(0x84, _GetMethodID);
-        _JNIEnvImpl.setPointer(0x8c, _CallObjectMethodV);
-        _JNIEnvImpl.setPointer(0x178, _GetFieldID);
-        _JNIEnvImpl.setPointer(0x17c, _GetObjectField);
-        _JNIEnvImpl.setPointer(0x1c4, _GetStaticMethodID);
-        _JNIEnvImpl.setPointer(0x1cc, _CallStaticObjectMethodV);
-        _JNIEnvImpl.setPointer(0x1d8, _CallStaticBooleanMethodV);
-        _JNIEnvImpl.setPointer(0x208, _CallStaticIntMethodV);
-        _JNIEnvImpl.setPointer(0x240, _GetStaticFieldID);
-        _JNIEnvImpl.setPointer(0x244, _GetStaticObjectField);
-        _JNIEnvImpl.setPointer(0x258, _GetStaticIntField);
-        _JNIEnvImpl.setPointer(0x2a0, _GetStringUTFLength);
-        _JNIEnvImpl.setPointer(0x2a4, _GetStringUTFChars);
-        _JNIEnvImpl.setPointer(0x2a8, _ReleaseStringUTFChars);
-        _JNIEnvImpl.setPointer(0x29c, _NewStringUTF);
-        _JNIEnvImpl.setPointer(0x35c, _RegisterNatives);
-        _JNIEnvImpl.setPointer(0x390, _ExceptionCheck);
-        _JNIEnvImpl.setPointer(0x3a0, _GetObjectRefType);
+        impl.setPointer(0x18, _FindClass);
+        impl.setPointer(0x3c, _ExceptionOccurred);
+        impl.setPointer(0x54, _NewGlobalRef);
+        impl.setPointer(0x58, _DeleteGlobalRef);
+        impl.setPointer(0x60, _IsSameObject);
+        impl.setPointer(0x7c, _GetObjectClass);
+        impl.setPointer(0x84, _GetMethodID);
+        impl.setPointer(0x8c, _CallObjectMethodV);
+        impl.setPointer(0x178, _GetFieldID);
+        impl.setPointer(0x17c, _GetObjectField);
+        impl.setPointer(0x1c4, _GetStaticMethodID);
+        impl.setPointer(0x1cc, _CallStaticObjectMethodV);
+        impl.setPointer(0x1d8, _CallStaticBooleanMethodV);
+        impl.setPointer(0x208, _CallStaticIntMethodV);
+        impl.setPointer(0x240, _GetStaticFieldID);
+        impl.setPointer(0x244, _GetStaticObjectField);
+        impl.setPointer(0x258, _GetStaticIntField);
+        impl.setPointer(0x2a0, _GetStringUTFLength);
+        impl.setPointer(0x2a4, _GetStringUTFChars);
+        impl.setPointer(0x2a8, _ReleaseStringUTFChars);
+        impl.setPointer(0x2ac, _GetArrayLength);
+        impl.setPointer(0x29c, _NewStringUTF);
+        impl.setPointer(0x2b4, _GetObjectArrayElement);
+        impl.setPointer(0x35c, _RegisterNatives);
+        impl.setPointer(0x390, _ExceptionCheck);
+        impl.setPointer(0x3a0, _GetObjectRefType);
 
         _JNIEnv = svcMemory.allocate(4);
-        _JNIEnv.setPointer(0, _JNIEnvImpl);
+        _JNIEnv.setPointer(0, impl);
 
         UnicornPointer _AttachCurrentThread = svcMemory.registerSvc(new ArmSvc() {
             @Override
@@ -440,7 +459,8 @@ public class DalvikVM implements VM {
 
     final Map<Long, DvmObject> objectMap = new HashMap<>();
 
-    int addObject(DvmObject object) {
+    @Override
+    public int addObject(DvmObject object) {
         if (object == null) {
             return 0;
         } else {

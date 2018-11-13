@@ -20,4 +20,6 @@ public interface VM {
     DvmClass resolveClass(String className);
     DvmClass findClass(String className);
 
+    int addObject(DvmObject object);
+
 }

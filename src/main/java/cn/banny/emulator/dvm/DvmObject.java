@@ -2,7 +2,7 @@ package cn.banny.emulator.dvm;
 
 public abstract class DvmObject<T> implements Hashable {
 
-    final DvmClass objectType;
+    public final DvmClass objectType;
     private final T value;
 
     public DvmObject(DvmClass objectType, T value) {

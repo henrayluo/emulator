@@ -33,7 +33,7 @@ class DvmField implements Hashable {
     int getObjectField(DvmObject dvmObject) {
         String signature = dvmClass.className + "->" + fieldName + ":" + fieldType;
         log.debug("getObjectField dvmObject=" + dvmObject + ", fieldName=" + fieldName + ", fieldType=" + fieldType + ", signature=" + signature);
-        return dvmClass.vm.jni.getObjectField(dvmObject, signature);
+        return dvmClass.vm.jni.getObjectField(dvmClass.vm, dvmObject, signature);
     }
 
 }
