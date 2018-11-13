@@ -5,6 +5,7 @@ import cn.banny.auxiliary.Inspector;
 import cn.banny.emulator.Emulator;
 import cn.banny.emulator.Memory;
 import cn.banny.emulator.arm.ARM;
+import cn.banny.emulator.arm.AndroidARMEmulator;
 import cn.banny.emulator.linux.Module;
 import cn.banny.emulator.pointer.UnicornPointer;
 import com.sun.jna.Pointer;
@@ -118,6 +119,7 @@ public class SimpleDebugger implements Debugger {
                 if ("help".equals(line)) {
                     System.out.println("c: continue");
                     System.out.println("n: step over");
+                    System.out.println("bt: back trace");
                     System.out.println();
                     System.out.println("s|si: step into");
                     System.out.println("s[decimal]: execute specified amount instruction");
@@ -192,6 +194,43 @@ public class SimpleDebugger implements Debugger {
                         }
                         continue;
                     }
+                }
+                if ("bt".equals(line)) {
+                    Memory memory = emulator.getMemory();
+                    String maxLengthSoName = memory.getMaxLengthSoName();
+                    boolean hasTrace = false;
+                    UnicornPointer sp = UnicornPointer.register(u, ArmConst.UC_ARM_REG_SP);
+                    UnicornPointer lr = UnicornPointer.register(u, ArmConst.UC_ARM_REG_LR);
+                    UnicornPointer r7 = UnicornPointer.register(u, ArmConst.UC_ARM_REG_R7);
+                    do {
+                        Module module = memory.findModuleByAddress(lr.peer);
+                        if (lr.peer == AndroidARMEmulator.LR) {
+                            break;
+                        }
+
+                        hasTrace = true;
+                        StringBuilder sb = new StringBuilder();
+                        if (module != null) {
+                            sb.append(String.format("[%" + maxLengthSoName.length() + "s]", module.name));
+                            sb.append(String.format("[0x%0" + Long.toHexString(memory.getMaxSizeOfSo()).length() + "x]", lr.peer - module.base + (thumb ? 1 : 0)));
+                        } else {
+                            sb.append(String.format("[%" + maxLengthSoName.length() + "s]", "0x" + Long.toHexString(lr.peer)));
+                            sb.append(String.format("[0x%0" + Long.toHexString(memory.getMaxSizeOfSo()).length() + "x]", lr.peer - 0xfffe0000L + (thumb ? 1 : 0)));
+                        }
+                        System.out.println(sb);
+
+                        if (r7.peer <= sp.peer) {
+                            System.err.println("r7=" + r7 + ", sp=" + sp);
+                            break;
+                        }
+
+                        r7 = r7.getPointer(0);
+                        lr = r7.getPointer(4);
+                    } while(true);
+                    if (!hasTrace) {
+                        System.err.println("Decode back trace failed.");
+                    }
+                    continue;
                 }
                 if (line.startsWith("b0x")) {
                     try {

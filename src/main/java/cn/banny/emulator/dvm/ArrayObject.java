@@ -1,8 +1,8 @@
 package cn.banny.emulator.dvm;
 
-public class ArrayObject extends DvmObject<Object[]> {
+public class ArrayObject extends DvmObject<DvmObject[]> {
 
-    public ArrayObject(DvmClass objectType, Object[] value) {
+    public ArrayObject(DvmClass objectType, DvmObject...value) {
         super(objectType, value);
     }
 

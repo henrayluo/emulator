@@ -23,7 +23,7 @@ public class AndroidARMEmulator extends AbstractEmulator implements ARMEmulator 
     private static final Log log = LogFactory.getLog(AndroidARMEmulator.class);
 
     private final Capstone capstoneArm, capstoneThumb;
-    private static final long LR = 0xffff0000L;
+    public static final long LR = 0xffff0000L;
 
     public AndroidARMEmulator() {
         this(null);
